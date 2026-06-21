@@ -112,6 +112,16 @@ RUN for node in ComfyUI-Impact-Pack ComfyUI-Impact-Subpack ComfyUI_IPAdapter_plu
     fi
 
 # ─────────────────────────────────────
+# 패키지 버전 핀 (CLIPSeg/IPAdapter requirements.txt가 numpy/transformers/pillow를 다운그레이드하는 것 방지)
+# 반드시 모든 requirements.txt 설치 이후에 실행 — 순서 중요
+# ─────────────────────────────────────
+RUN pip install --no-cache-dir \
+    "numpy>=1.26.4" \
+    "pillow>=10.1.0" \
+    "transformers>=4.45.0" \
+    "protobuf>=4.25.1"
+
+# ─────────────────────────────────────
 # ComfyUI v0.3.x 호환성 패치
 # Impact-Pack: comfy.samplers.SCHEDULER_HANDLERS → SCHEDULER_NAMES (v0.3.x에서 이름 변경)
 # ─────────────────────────────────────

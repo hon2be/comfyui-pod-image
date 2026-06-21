@@ -87,7 +87,7 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
 
 | 워크플로우 | 필요 모델 (체크포인트 + LoRA + 기타) |
 |-----------|------|
-| **1) Han.json** | Juggernaut XL + hangbokXL_dangui + OpenPoseXL2 + FaceID v2 + clip-vision-vit-h + face_yolov8m + hand_yolov8s |
+| **1) Han.json** | Juggernaut XL + hangbokXL_dangui + OpenPoseXL2 + ip-adapter-plus_sdxl_vit-h + FaceID v2 + ViT-H-14 clip_vision + face_yolov8m + hand_yolov8s |
 | **2) hanbok_pose.json** | Juggernaut XL + hangbokXL_dangui + OpenPoseXL2 |
 | **3) hanbok_sitting_pose.json** | 2번과 동일 |
 | **4) wan2.2_fun_camera.json** | Wan2.2 high/low 14B + Lightning LoRA × 2 + umt5_xxl + wan_2.1_vae |
@@ -136,6 +136,7 @@ download_hanbok() {
   dl "https://civitai.com/api/download/models/263359"  "$M/loras/hangbokXL_dangui.safetensors" 70 &
   dl "$HF/thibaud/controlnet-openpose-sdxl-1.0/resolve/main/OpenPoseXL2.safetensors" "$M/controlnet/OpenPoseXL2.safetensors" 4000 &
   # Han.json 전용 추가
+  dl "$HF/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors" "$M/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors" 700 &
   dl "$HF/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin" "$M/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin" 1300 &
   dl "$HF/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" "$M/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" 300 &
   dl "$HF/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" "$M/clip_vision/ViT-H-14-laion2B-s32B-b79K.safetensors" 2000 &
@@ -187,9 +188,9 @@ download_pixelart() {
 # 다운로드 후 모델 인식
 pkill -f "main.py" 2>/dev/null
 sleep 2
-cd /ComfyUI
-nohup python main.py --listen 0.0.0.0 --port ${COMFYUI_PORT} > /workspace/comfy.log 2>&1 &
-sleep 5
+# nohup은 Claude Code 환경에서 exit 144 유발 — bash -c로 우회
+bash -c "python /ComfyUI/main.py --listen 0.0.0.0 --port ${COMFYUI_PORT} --disable-auto-launch > /workspace/comfy.log 2>&1 &"
+sleep 8
 ```
 
 ### Step 6. 완료 메시지
