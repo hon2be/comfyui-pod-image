@@ -1,5 +1,5 @@
 #!/bin/bash
-# Pod 시작 시 자동 실행 — Symlink + ComfyUI 시작 + MCP 설정 + Claude 설정 복사
+# Pod 시작 시 자동 실행 — DNS 수정 + Symlink + ComfyUI 시작 + MCP 설정 + Claude 설정 복사
 # 모델 다운로드는 사용자가 Claude Code 실행 후 CLAUDE.md 보고 자동 처리
 
 set -e
@@ -9,6 +9,30 @@ VOLUME_PATH=${VOLUME_PATH:-/workspace/comfyui}
 COMFYUI_PORT=${COMFYUI_PORT:-3000}
 COMFYUI_HOST=${COMFYUI_HOST:-0.0.0.0}
 WORKING_DIR=${WORKING_DIR:-/workspace/work}
+
+# ─────────────────────────────────────
+# 0. DNS 자동 수정 (Docker 내부 DNS 문제 우회)
+# ─────────────────────────────────────
+echo "🔧 DNS 설정 (Public DNS 강제)"
+cat > /etc/resolv.conf <<DNS_EOF
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+nameserver 9.9.9.9
+DNS_EOF
+
+# resolv.conf immutable 시도 (Docker 덮어쓰기 방지)
+chattr +i /etc/resolv.conf 2>/dev/null || true
+
+# 인터넷 확인
+if ! curl -sf --connect-timeout 5 https://google.com >/dev/null 2>&1; then
+  echo "⚠️ 인터넷 연결 실패 — 5초 후 재시도"
+  sleep 5
+  chattr -i /etc/resolv.conf 2>/dev/null || true
+  cat > /etc/resolv.conf <<DNS_EOF
+nameserver 8.8.4.4
+nameserver 1.0.0.1
+DNS_EOF
+fi
 
 echo "═══════════════════════════════════════════════════"
 echo "🚀 ComfyUI Pod 부팅"
