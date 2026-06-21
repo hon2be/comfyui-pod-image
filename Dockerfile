@@ -43,22 +43,31 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # ─────────────────────────────────────
-# 커스텀 노드 (Comfy-Pilot MCP 포함)
+# 커스텀 노드 (이미 있으면 skip, 실패해도 빌드 계속)
 # ─────────────────────────────────────
 WORKDIR ${COMFY_PATH}/custom_nodes
 
-RUN git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git \
- && git clone --depth 1 https://github.com/cubiq/ComfyUI_IPAdapter_plus.git \
- && git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Impact-Pack.git \
- && git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git \
- && git clone --depth 1 https://github.com/Fannovel16/comfyui_controlnet_aux.git \
- && git clone --depth 1 https://github.com/cubiq/ComfyUI_essentials.git \
- && git clone --depth 1 https://github.com/rgthree/rgthree-comfy.git \
- && git clone --depth 1 https://github.com/chflame163/ComfyUI_LayerStyle.git \
- && git clone --depth 1 https://github.com/kijai/ComfyUI-IC-Light.git \
- && git clone --depth 1 https://github.com/huchenlei/ComfyUI-openpose-editor.git \
- && git clone --depth 1 https://github.com/GeekyGhost/ComfyUI-GeekyRemB.git \
- && git clone --depth 1 https://github.com/ConstantineB6/Comfy-Pilot.git
+RUN for repo in \
+        "https://github.com/ltdrdata/ComfyUI-Manager.git" \
+        "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git" \
+        "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git" \
+        "https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git" \
+        "https://github.com/Fannovel16/comfyui_controlnet_aux.git" \
+        "https://github.com/cubiq/ComfyUI_essentials.git" \
+        "https://github.com/rgthree/rgthree-comfy.git" \
+        "https://github.com/chflame163/ComfyUI_LayerStyle.git" \
+        "https://github.com/kijai/ComfyUI-IC-Light.git" \
+        "https://github.com/huchenlei/ComfyUI-openpose-editor.git" \
+        "https://github.com/GeekyGhost/ComfyUI-GeekyRemB.git" \
+        "https://github.com/ConstantineB6/Comfy-Pilot.git"; do \
+        name=$(basename "$repo" .git); \
+        if [ -d "$name" ]; then \
+            echo "✅ 이미 있음: $name"; \
+        else \
+            echo "📥 git clone $name"; \
+            git clone --depth 1 "$repo" || echo "⚠️ $name clone 실패 (계속 진행)"; \
+        fi; \
+    done
 
 # ─────────────────────────────────────
 # Python 패키지 + 커스텀 노드 의존성
@@ -68,13 +77,20 @@ RUN pip install --no-cache-dir \
         segment_anything dill piexif \
         fastapi uvicorn websockets \
         huggingface_hub[hf_transfer] \
-    && for node in ComfyUI-Impact-Pack ComfyUI-Impact-Subpack ComfyUI_IPAdapter_plus \
-                   ComfyUI-GeekyRemB ComfyUI_LayerStyle ComfyUI-IC-Light \
-                   rgthree-comfy comfyui_controlnet_aux; do \
+    || echo "⚠️ 일부 pip 패키지 실패 (계속)"
+
+RUN for node in ComfyUI-Impact-Pack ComfyUI-Impact-Subpack ComfyUI_IPAdapter_plus \
+                ComfyUI-GeekyRemB ComfyUI_LayerStyle ComfyUI-IC-Light \
+                rgthree-comfy comfyui_controlnet_aux; do \
         req="${COMFY_PATH}/custom_nodes/${node}/requirements.txt"; \
-        [ -f "$req" ] && pip install --no-cache-dir -r "$req" || true; \
-    done \
-    && cd Comfy-Pilot && pip install --no-cache-dir -e . || true
+        if [ -f "$req" ]; then \
+            echo "📦 $node requirements.txt"; \
+            pip install --no-cache-dir -r "$req" || echo "⚠️ $node 의존성 일부 실패 (계속)"; \
+        fi; \
+    done; \
+    if [ -d "${COMFY_PATH}/custom_nodes/Comfy-Pilot" ]; then \
+        pip install --no-cache-dir -e "${COMFY_PATH}/custom_nodes/Comfy-Pilot" || echo "⚠️ Comfy-Pilot 설치 실패"; \
+    fi
 
 # ─────────────────────────────────────
 # 사용자 워크플로우 JSON (이미지에 동봉)
