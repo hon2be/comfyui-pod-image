@@ -209,6 +209,97 @@ sleep 5
 
 ---
 
+## 🤸 포즈 레퍼런스 (포즈 관련 요청 시 항상 참고)
+
+**트리거 키워드**: "포즈", "앉아", "서있는", "포즈 참고", "이 포즈로", "포즈 맞춰", "관절", "스켈레톤", "포즈 편집"
+
+### 🥇 1순위: github.com/a-lgil/pose-depot (포즈 라이브러리)
+
+40+ 가지 검증된 포즈가 OpenPose/Canny/Depth/Normal 4가지 포맷으로 제공.
+
+**API로 검색**:
+```bash
+curl -s "https://api.github.com/repos/a-lgil/pose-depot/contents/collections" | \
+  python3 -c "import json,sys; [print(i['name']) for i in json.load(sys.stdin)]"
+```
+
+**컬렉션 예시**:
+- `14F_Crossed_Legs_on_Floor` — 다리꼬고 바닥에 앉기 (한복에 좋음)
+- `11F_Sitting_on_Stairs` — 계단에 앉기
+- `16F_Sitting_and_Thinking` — 앉아서 생각
+- `2F_Hand_on_Hip` — 손 허리에
+- `7F_Glamorous_Greeting` — 우아한 인사
+- `8F_Bed_Mirror_Selfie` — 거울 셀카
+- (F = Female, M = Male)
+
+**다운로드 + Pod에 저장**:
+```bash
+# 원하는 컬렉션의 OpenPose.png 받기
+COLLECTION="14F_Crossed_Legs_on_Floor"
+curl -sL "https://raw.githubusercontent.com/a-lgil/pose-depot/main/collections/$COLLECTION/OpenPose.png" \
+  -o /workspace/comfyui/input/pose_sitting_crossed.png
+
+# Canny/Depth도 같이 받으면
+for type in Canny Depth Normal OpenPose; do
+  curl -sL "https://raw.githubusercontent.com/a-lgil/pose-depot/main/collections/$COLLECTION/$type.png" \
+    -o "/workspace/comfyui/input/pose_${COLLECTION}_${type}.png"
+done
+```
+
+→ ComfyUI 워크플로우의 LoadImage 노드에서 선택 → ControlNetApplyAdvanced로 연결
+
+### 🥈 2순위: openposes.com (포즈 직접 편집)
+
+브라우저에서 스켈레톤 드래그로 원하는 포즈 만들기 → PNG 내보내기.
+
+**트리거**: "포즈 직접 편집", "관절 조정", "스켈레톤 수정"
+
+**사용 흐름**:
+1. https://openposes.com 접속
+2. 캔버스에서 관절 드래그하여 원하는 포즈
+3. "Download as PNG" 클릭
+4. 받은 PNG를 Pod에 업로드:
+   ```bash
+   # 로컬에서
+   scp -P [PORT] pose_custom.png root@[POD_HOST]:/workspace/comfyui/input/
+   ```
+5. ComfyUI 워크플로우의 LoadImage 노드에서 사용
+
+### 🥉 3순위: ComfyUI-openpose-editor (Pod 내장)
+
+ComfyUI 캔버스 안에서 직접 포즈 편집 노드 사용.
+
+**노드명**: `Openpose Editor`
+**워크플로우 추가**: ComfyUI에서 더블클릭 → "Openpose Editor" 검색 → 노드 추가
+→ ControlNetApplyAdvanced의 image 입력에 연결
+
+### 포즈 워크플로우 통합 흐름
+
+```
+사용자: "한복 입은 여인이 다리 꼬고 앉은 포즈로 만들어줘"
+   ↓
+Claude 자동 진행:
+   1. pose-depot에서 "Crossed_Legs_on_Floor" 검색
+   2. OpenPose.png 다운로드 → /workspace/comfyui/input/
+   3. Han.json 워크플로우의 LoadImage(pose) 노드에 그 이미지 지정
+   4. KSampler 큐 실행
+```
+
+### 트리거 키워드별 자동 매칭
+
+| 사용자 요청 | pose-depot 컬렉션 |
+|------------|------------------|
+| "앉은 포즈" / "앉아있는" | 14F_Crossed_Legs_on_Floor |
+| "계단에 앉아" | 11F_Sitting_on_Stairs |
+| "생각하는" / "고민" | 16F_Sitting_and_Thinking |
+| "손 허리에" / "당당한" | 2F_Hand_on_Hip |
+| "인사" / "공손한" | 7F_Glamorous_Greeting |
+| "거울 보는" | 8F_Bed_Mirror_Selfie |
+| "정면 서있는" | (Cover.png 보고 매칭) |
+| "구체적 포즈 X" | pose-depot 리스트 전체 보여주고 사용자 선택 |
+
+---
+
 ## 🛠 사용 가능한 도구
 
 ### Comfy-Pilot MCP (자동 등록됨)
