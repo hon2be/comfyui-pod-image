@@ -73,25 +73,43 @@ RUN for repo in \
 # ─────────────────────────────────────
 # Python 패키지 + 커스텀 노드 의존성
 # ─────────────────────────────────────
+# ─────────────────────────────────────
+# 핵심 Python 패키지 — Impact-Pack/IPAdapter/CLIPSeg 필수 의존성
+# ─────────────────────────────────────
 RUN pip install --no-cache-dir \
-        insightface onnxruntime ultralytics \
-        segment_anything dill piexif \
+        segment_anything piexif ultralytics dill \
+        insightface onnxruntime \
+        transformers \
+        opencv-python-headless scipy scikit-image einops \
         fastapi uvicorn websockets \
-        huggingface_hub[hf_transfer] \
-    || echo "⚠️ 일부 pip 패키지 실패 (계속)"
+        "huggingface_hub[hf_transfer]"
 
+# ─────────────────────────────────────
+# 각 커스텀 노드의 requirements.txt 설치 (있는 경우만)
+# ─────────────────────────────────────
 RUN for node in ComfyUI-Impact-Pack ComfyUI-Impact-Subpack ComfyUI_IPAdapter_plus \
                 ComfyUI-GeekyRemB ComfyUI_LayerStyle ComfyUI-IC-Light \
-                rgthree-comfy comfyui_controlnet_aux; do \
+                rgthree-comfy comfyui_controlnet_aux ComfyUI-CLIPSeg \
+                ComfyUI_essentials; do \
         req="${COMFY_PATH}/custom_nodes/${node}/requirements.txt"; \
         if [ -f "$req" ]; then \
-            echo "📦 $node requirements.txt"; \
+            echo "📦 [$node] requirements.txt 설치"; \
             pip install --no-cache-dir -r "$req" || echo "⚠️ $node 의존성 일부 실패 (계속)"; \
+        else \
+            echo "ℹ️ [$node] requirements.txt 없음 (skip)"; \
         fi; \
     done; \
     if [ -d "${COMFY_PATH}/custom_nodes/Comfy-Pilot" ]; then \
-        pip install --no-cache-dir -e "${COMFY_PATH}/custom_nodes/Comfy-Pilot" || echo "⚠️ Comfy-Pilot 설치 실패"; \
+        echo "📦 Comfy-Pilot editable install"; \
+        pip install --no-cache-dir -e "${COMFY_PATH}/custom_nodes/Comfy-Pilot" \
+            || echo "⚠️ Comfy-Pilot pyproject 설치 실패 (수동 의존성으로 대체)"; \
     fi
+
+# ─────────────────────────────────────
+# Impact-Pack/Subpack 정상 로드 검증
+# ─────────────────────────────────────
+RUN python -c "import segment_anything, ultralytics, insightface, transformers; print('✅ 핵심 패키지 import OK')" \
+    || (echo "❌ 핵심 패키지 import 실패" && exit 1)
 
 # ─────────────────────────────────────
 # 사용자 워크플로우 JSON (이미지에 동봉)
