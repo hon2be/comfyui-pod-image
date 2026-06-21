@@ -59,6 +59,7 @@ RUN for repo in \
         "https://github.com/kijai/ComfyUI-IC-Light.git" \
         "https://github.com/huchenlei/ComfyUI-openpose-editor.git" \
         "https://github.com/GeekyGhost/ComfyUI-GeekyRemB.git" \
+        "https://github.com/biegert/ComfyUI-CLIPSeg.git" \
         "https://github.com/ConstantineB6/Comfy-Pilot.git"; do \
         name=$(basename "$repo" .git); \
         if [ -d "$name" ]; then \
