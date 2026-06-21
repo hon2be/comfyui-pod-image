@@ -1,0 +1,76 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "juggernautXL_ragnarok.safetensors" }
+  },
+  "2": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": ["1", 0], "clip": ["1", 1],
+      "lora_name": "hangbokXL_dangui.safetensors",
+      "strength_model": 0.8, "strength_clip": 0.8
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 1],
+      "text": "masterpiece, best quality, ultra detailed, 1girl, korean woman, wearing dangui hanbok, joseon era traditional clothing, elegant, silk fabric, detailed embroidery, full body, standing pose, soft natural lighting, photorealistic"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 1],
+      "text": "nsfw, lowres, bad anatomy, bad hands, missing fingers, extra digit, blurry, duplicate, watermark, deformed, ugly, text, signature, (worst quality:2), (low quality:2)"
+    }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": { "width": 832, "height": 1216, "batch_size": 1 }
+  },
+  "6": {
+    "class_type": "LoadImage",
+    "_comment": "openposes.com 또는 openpose-editor에서 내보낸 PNG를 여기에 연결",
+    "inputs": { "image": "pose.png", "upload": "image" }
+  },
+  "7": {
+    "class_type": "ControlNetLoader",
+    "inputs": { "control_net_name": "OpenPoseXL2.safetensors" }
+  },
+  "8": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "control_net": ["7", 0],
+      "image": ["6", 0],
+      "strength": 0.8,
+      "start_percent": 0.0,
+      "end_percent": 0.85
+    }
+  },
+  "9": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["2", 0],
+      "positive": ["8", 0],
+      "negative": ["8", 1],
+      "latent_image": ["5", 0],
+      "seed": 0,
+      "steps": 30,
+      "cfg": 7.0,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0
+    }
+  },
+  "10": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["9", 0], "vae": ["1", 2] }
+  },
+  "11": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["10", 0], "filename_prefix": "hanbok_pose" }
+  }
+}

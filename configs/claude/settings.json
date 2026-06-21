@@ -1,0 +1,26 @@
+{
+  "model": "claude-sonnet-4-6",
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(ps:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(du:*)",
+      "Bash(df:*)",
+      "Bash(pip install*)",
+      "Bash(python:*)",
+      "Bash(git clone:*)",
+      "Bash(git pull:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(ln -sfn:*)",
+      "Bash(pkill -f main.py)",
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)"
+    ]
+  }
+}
