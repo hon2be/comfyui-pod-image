@@ -71,8 +71,14 @@ RUN for repo in \
     done
 
 # ─────────────────────────────────────
-# Python 패키지 + 커스텀 노드 의존성
+# PyTorch 2.7.0 + CUDA 12.8 (Blackwell SM 12.0 지원)
+# NVIDIA RTX PRO 4500 등 Blackwell 아키텍처 GPU 필수
+# 기본 이미지의 PyTorch(2.6.x/cu124)는 SM 9.0까지만 지원 → SM 12.0에서 CUDA kernel 오류 발생
 # ─────────────────────────────────────
+RUN pip install --no-cache-dir \
+        torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 \
+        --index-url https://download.pytorch.org/whl/cu128
+
 # ─────────────────────────────────────
 # 핵심 Python 패키지 — Impact-Pack/IPAdapter/CLIPSeg 필수 의존성
 # ─────────────────────────────────────
@@ -104,6 +110,16 @@ RUN for node in ComfyUI-Impact-Pack ComfyUI-Impact-Subpack ComfyUI_IPAdapter_plu
         pip install --no-cache-dir -e "${COMFY_PATH}/custom_nodes/Comfy-Pilot" \
             || echo "⚠️ Comfy-Pilot pyproject 설치 실패 (수동 의존성으로 대체)"; \
     fi
+
+# ─────────────────────────────────────
+# ComfyUI v0.3.x 호환성 패치
+# Impact-Pack: comfy.samplers.SCHEDULER_HANDLERS → SCHEDULER_NAMES (v0.3.x에서 이름 변경)
+# ─────────────────────────────────────
+RUN find ${COMFY_PATH}/custom_nodes/ComfyUI-Impact-Pack \
+         ${COMFY_PATH}/custom_nodes/ComfyUI-Impact-Subpack \
+         -name "*.py" 2>/dev/null \
+    | xargs sed -i 's/comfy\.samplers\.SCHEDULER_HANDLERS/comfy.samplers.SCHEDULER_NAMES/g' \
+    || true
 
 # ─────────────────────────────────────
 # Impact-Pack/Subpack 정상 로드 검증

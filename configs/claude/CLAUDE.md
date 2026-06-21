@@ -138,7 +138,7 @@ download_hanbok() {
   # Han.json 전용 추가
   dl "$HF/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin" "$M/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin" 1300 &
   dl "$HF/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" "$M/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" 300 &
-  dl "$HF/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" "$M/clip_vision/clip-vision_vit-h.safetensors" 2000 &
+  dl "$HF/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" "$M/clip_vision/ViT-H-14-laion2B-s32B-b79K.safetensors" 2000 &
   dl "$HF/Bingsu/adetailer/resolve/main/face_yolov8m.pt" "$M/ultralytics/bbox/face_yolov8m.pt" 30 &
   dl "$HF/Bingsu/adetailer/resolve/main/hand_yolov8s.pt" "$M/ultralytics/bbox/hand_yolov8s.pt" 15 &
   wait
@@ -165,7 +165,7 @@ download_character() {
   # 베이스 모델 — CivitAI 또는 HF 미러
   # beautifulRealistic_asian_v7 (직접 URL 알아내거나 사용자에게 문의)
   dl "$HF/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors" "$M/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors" 700 &
-  dl "$HF/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" "$M/clip_vision/clip-vision_vit-h.safetensors" 2000 &
+  dl "$HF/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" "$M/clip_vision/ViT-H-14-laion2B-s32B-b79K.safetensors" 2000 &
   # FaceID SD1.5 (옵션)
   dl "$HF/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plus_sd15.bin" "$M/ipadapter/faceid.plus.sd15.bin" 100 &
   dl "$HF/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid_sd15.bin" "$M/ipadapter/faceid.sd15.bin" 80 &
