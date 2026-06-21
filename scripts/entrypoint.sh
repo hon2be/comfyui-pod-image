@@ -107,8 +107,8 @@ cat > ~/.claude/.mcp.json <<EOF
 {
   "mcpServers": {
     "comfyui": {
-      "command": "node",
-      "args": ["$COMFY_PATH/custom_nodes/Comfy-Pilot/mcp_server.js"],
+      "command": "python",
+      "args": ["$COMFY_PATH/custom_nodes/Comfy-Pilot/mcp_server.py"],
       "env": { "COMFYUI_URL": "http://127.0.0.1:$COMFYUI_PORT" }
     }
   }

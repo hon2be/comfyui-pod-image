@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "comfyui": {
+      "command": "python",
+      "args": ["/ComfyUI/custom_nodes/Comfy-Pilot/mcp_server.py"],
+      "env": {
+        "COMFYUI_URL": "http://127.0.0.1:3000"
+      }
+    }
+  }
+}

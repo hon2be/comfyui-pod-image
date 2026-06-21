@@ -5,3 +5,4 @@ README.md
 *.md
 !configs/claude/CLAUDE.md
 !configs/claude/commands/*.md
+!configs/claude/.mcp.json
