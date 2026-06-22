@@ -59,7 +59,7 @@ RUN for repo in \
         "https://github.com/kijai/ComfyUI-IC-Light.git" \
         "https://github.com/huchenlei/ComfyUI-openpose-editor.git" \
         "https://github.com/GeekyGhost/ComfyUI-GeekyRemB.git" \
-        "https://github.com/biegert/ComfyUI-CLIPSeg.git" \
+        "https://github.com/time-river/ComfyUI-CLIPSeg.git" \
         "https://github.com/ConstantineB6/Comfy-Pilot.git"; do \
         name=$(basename "$repo" .git); \
         if [ -d "$name" ]; then \
@@ -122,14 +122,41 @@ RUN pip install --no-cache-dir \
     "protobuf>=4.25.1"
 
 # ─────────────────────────────────────
-# ComfyUI v0.3.x 호환성 패치
-# Impact-Pack: comfy.samplers.SCHEDULER_HANDLERS → SCHEDULER_NAMES (v0.3.x에서 이름 변경)
+# CLIPSeg __init__.py 생성
+# time-river/ComfyUI-CLIPSeg 레포는 실제 노드 파일이 custom_nodes/ 하위에 있어
+# ComfyUI가 자동 탐색하지 못하므로 re-export __init__.py 생성
 # ─────────────────────────────────────
-RUN find ${COMFY_PATH}/custom_nodes/ComfyUI-Impact-Pack \
-         ${COMFY_PATH}/custom_nodes/ComfyUI-Impact-Subpack \
-         -name "*.py" 2>/dev/null \
-    | xargs sed -i 's/comfy\.samplers\.SCHEDULER_HANDLERS/comfy.samplers.SCHEDULER_NAMES/g' \
-    || true
+RUN printf '%s\n' \
+    'import sys, os' \
+    'sys.path.insert(0, os.path.join(os.path.dirname(__file__), "custom_nodes"))' \
+    'from clipseg import NODE_CLASS_MAPPINGS' \
+    'NODE_DISPLAY_NAME_MAPPINGS = {}' \
+    '__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]' \
+    > ${COMFY_PATH}/custom_nodes/ComfyUI-CLIPSeg/__init__.py
+
+# ─────────────────────────────────────
+# ComfyUI 호환성 패치: Impact-Pack
+# comfy.samplers.SCHEDULER_HANDLERS 속성이 현재 ComfyUI 버전에 없음
+# getattr fallback으로 SCHEDULER_NAMES를 사용하도록 패치 (버전 업 시에도 안전)
+# ─────────────────────────────────────
+RUN python - <<'PYEOF'
+import re, pathlib
+
+target = pathlib.Path("/ComfyUI/custom_nodes/ComfyUI-Impact-Pack/modules/impact/core.py")
+if target.exists():
+    src = target.read_text()
+    patched = src.replace(
+        "return list(comfy.samplers.SCHEDULER_HANDLERS) + ADDITIONAL_SCHEDULERS",
+        "handlers = getattr(comfy.samplers, 'SCHEDULER_HANDLERS', comfy.samplers.SCHEDULER_NAMES)\n    return list(handlers) + ADDITIONAL_SCHEDULERS"
+    )
+    if patched != src:
+        target.write_text(patched)
+        print("✅ Impact-Pack core.py 패치 완료")
+    else:
+        print("ℹ️  이미 패치됨 또는 대상 라인 없음 (skip)")
+else:
+    print("⚠️  core.py 없음 (skip)")
+PYEOF
 
 # ─────────────────────────────────────
 # Impact-Pack/Subpack 정상 로드 검증
