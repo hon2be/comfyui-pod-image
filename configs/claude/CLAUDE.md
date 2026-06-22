@@ -9,17 +9,75 @@
 
 - **이름**: honeybee
 - **언어**: 한국어 (해요체)
-- **비용 한도**: RunPod GPU 시간당 5,000원
+- **비용 한도**: RunPod GPU 시간당 5,000원 (1시간 작업 ~$0.40 기준)
 - **ComfyUI 포트**: `${COMFYUI_PORT}` (환경변수, 기본 3000)
 
 ## 🔑 환경변수
 
-| 변수 | 용도 | 필수 여부 |
-|------|------|----------|
-| `HF_TOKEN` | HuggingFace 빠른 다운로드 | 선택 |
-| `CIVITAI_TOKEN` | Juggernaut XL, 한복 LoRA | **한복 작업 시 필수** |
+| 변수 | 기본값 | 용도 | 필수 여부 |
+|------|--------|------|----------|
+| `HF_TOKEN` | (없음) | HuggingFace 빠른 다운로드 | 선택 |
+| `CIVITAI_TOKEN` | (없음) | Juggernaut XL, 한복 LoRA | **한복 작업 시 필수** |
+| `COMFYUI_PORT` | `3000` | ComfyUI 리스닝 포트 | - |
+| `COMFYUI_HOST` | `0.0.0.0` | 바인드 호스트 | - |
+| `COMFY_PATH` | `/ComfyUI` | ComfyUI 본체 경로 | - |
+| `VOLUME_PATH` | `/workspace/comfyui` | Network Volume 마운트 경로 | - |
+| `WORKING_DIR` | `/workspace/work` | Claude Code 시작 위치 | - |
 
 미설정 시 사용자에게 안내하고 진행.
+
+## 📁 Pod 경로 구조
+
+```
+/ComfyUI/                          ← ComfyUI 본체 (컨테이너)
+  custom_nodes/  →  심링크  →  /workspace/comfyui/custom_nodes/
+  models/        →  심링크  →  /workspace/comfyui/models/
+  input/         →  심링크  →  /workspace/comfyui/input/
+  output/        →  심링크  →  /workspace/comfyui/output/
+  user/          →  심링크  →  /workspace/comfyui/user/
+
+/workspace/comfyui/                ← Network Volume (영구 저장)
+  models/
+    checkpoints/                   ← 체크포인트 (.safetensors)
+    loras/                         ← LoRA 모델
+    controlnet/                    ← ControlNet 모델
+    ipadapter/                     ← IP-Adapter 모델
+    clip_vision/                   ← CLIP Vision 모델
+    ultralytics/bbox/              ← YOLOv8 감지 모델
+    diffusion_models/              ← Wan2.2 등 디퓨전 모델
+    vae/ text_encoders/
+  custom_nodes/                    ← 커스텀 노드 원본 (영구)
+  user/default/workflows/          ← 워크플로우 JSON 18개
+  input/ output/
+```
+
+## 💰 비용 참고
+
+| 항목 | 비용 |
+|------|------|
+| Network Volume 100GB | $5~7/월 |
+| Pod GPU 1시간 (RTX A40 기준) | ~$0.39/hr |
+| 첫 셋업 모델 다운로드 30분 | ~$0.20 |
+| 일상 1시간 작업 | ~$0.40 |
+
+**Pod Stop = GPU 과금 중단** (Storage 월 $5~7은 유지)
+
+## 📦 이미지에 포함된 커스텀 노드
+
+| 노드 | 용도 |
+|------|------|
+| ComfyUI-Impact-Pack | FaceDetailer, HandDetailer |
+| ComfyUI_IPAdapter_plus | IP-Adapter, FaceID |
+| comfyui_controlnet_aux | ControlNet 전처리 |
+| ComfyUI-CLIPSeg | 의상/영역 마스킹 |
+| ComfyUI-Manager | 노드 관리 |
+| ComfyUI_LayerStyle | 레이어 합성 |
+| ComfyUI-IC-Light | 조명 조정 |
+| ComfyUI-GeekyRemB | 배경 제거 |
+| ComfyUI-openpose-editor | 포즈 편집 |
+| ComfyUI_essentials | 유틸리티 |
+| rgthree-comfy | 유틸리티 |
+| Comfy-Pilot | MCP 서버 (Claude 연동) |
 
 ---
 
@@ -378,6 +436,22 @@ ln -s /workspace/comfyui/custom_nodes /ComfyUI/custom_nodes
 
 ---
 
+## 🔄 워크플로우 추가/수정 (사용자가 요청 시)
+
+```bash
+# 1. Pod에서 작업한 워크플로우를 이미지 소스에 반영
+cp /workspace/comfyui/user/default/workflows/NEW.json \
+   /workspace/comfyui-pod-image/configs/workflows/
+
+# 2. CLAUDE.md 워크플로우 리스트 + Step 3 매핑 테이블에 추가 후 push
+cd /workspace/comfyui-pod-image
+git add . && git commit -m "add workflow: NEW" && git push
+```
+
+→ GitHub Actions가 자동 재빌드 (20~30분) → 다음 Pod 생성 시 포함됨
+
+---
+
 ## 📝 사용자가 자주 묻는 것
 
 ### Q. 워크플로우 목록 보여줘
@@ -397,3 +471,13 @@ ln -s /workspace/comfyui/custom_nodes /ComfyUI/custom_nodes
 
 ### Q. "Pod 종료하고 싶어"
 → "RunPod 대시보드 → My Pods → Stop. Storage($5~7/월)는 유지됩니다."
+
+### Q. "커스텀 노드 새로 설치하고 싶어"
+→ `/workspace/comfyui/custom_nodes/`에 직접 설치 (Network Volume에 저장되므로 Pod 재생성 후에도 유지)
+```bash
+cd /workspace/comfyui/custom_nodes
+git clone --depth=1 https://github.com/[노드레포].git
+pip install -r [노드레포]/requirements.txt
+# ComfyUI 재시작
+kill $(pgrep -f "main.py") 2>/dev/null; cd /ComfyUI && python main.py --listen 0.0.0.0 --port ${COMFYUI_PORT:-3000} --disable-auto-launch > /workspace/comfy.log 2>&1 &
+```
