@@ -51,6 +51,7 @@ mkdir -p $WORKING_DIR
 
 # ─────────────────────────────────────
 # 2. /ComfyUI ↔ Network Volume Symlink
+#    원본: Network Volume  ←  심링크: 컨테이너 경로
 # ─────────────────────────────────────
 echo "🔗 Symlink 연결"
 for dir in models input output user; do
@@ -59,6 +60,18 @@ for dir in models input output user; do
   fi
   ln -sfn "$VOLUME_PATH/$dir" "$COMFY_PATH/$dir"
 done
+
+# custom_nodes: 원본은 Network Volume, 컨테이너 경로는 심링크
+# - 첫 부팅: 이미지에 번들된 노드를 Network Volume으로 복사
+# - 이후 부팅: 심링크만 걸어서 네트워크 볼륨의 노드 사용 (영구 유지)
+mkdir -p $VOLUME_PATH/custom_nodes
+if [ -d "$COMFY_PATH/custom_nodes" ] && [ ! -L "$COMFY_PATH/custom_nodes" ]; then
+  echo "  📦 커스텀 노드 Network Volume으로 복사 중 (최초 1회)..."
+  rsync -a --ignore-existing "$COMFY_PATH/custom_nodes/" "$VOLUME_PATH/custom_nodes/"
+  rm -rf "$COMFY_PATH/custom_nodes"
+fi
+ln -sfn "$VOLUME_PATH/custom_nodes" "$COMFY_PATH/custom_nodes"
+echo "  ✅ custom_nodes → $VOLUME_PATH/custom_nodes"
 
 # ─────────────────────────────────────
 # 3. ComfyUI 백그라운드 시작 (포트 환경변수 사용)

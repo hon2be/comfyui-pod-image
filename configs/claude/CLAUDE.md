@@ -358,6 +358,23 @@ high_noise + low_noise 14B fp8 듀얼 + Lightning LoRA × 2
 5. **Pod Stop = GPU 과금 중단** (Storage 월 $5~7만 유지)
 6. **워크플로우는 entrypoint가 자동 복사** — `/opt/workflows-template/*.json` → `/workspace/comfyui/user/default/workflows/`
 7. **다운로드 후 반드시 ComfyUI 재시작** (Manager 새로고침으론 인식 안 될 수도)
+8. **커스텀 노드 원본은 Network Volume** — `custom_nodes/` 원본: `/workspace/comfyui/custom_nodes/`, 컨테이너 경로(`/ComfyUI/custom_nodes/`)는 심링크. Pod 재생성 시 entrypoint가 자동 심링크 복원. 새 노드 설치 시 Network Volume에 저장되므로 영구 유지.
+
+### 커스텀 노드 심링크 구조
+
+```
+/ComfyUI/custom_nodes/  →  (심링크)  →  /workspace/comfyui/custom_nodes/  (Network Volume, 실제 원본)
+```
+
+심링크가 끊겨있을 때 수동 복원:
+```bash
+# 심링크 확인
+ls -la /ComfyUI/custom_nodes
+
+# 끊겨있으면 재연결
+rm -rf /ComfyUI/custom_nodes
+ln -s /workspace/comfyui/custom_nodes /ComfyUI/custom_nodes
+```
 
 ---
 
