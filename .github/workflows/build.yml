@@ -20,14 +20,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Free Disk Space
+        # PyTorch 2.7 + CUDA 12.8 wheels 이 큰 편이라 · 이전 빌드가
+        # `[Errno 28] No space left on device` 로 실패했음. 공격적으로 정리.
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: false
+          tool-cache: true          # ~15GB 확보 (안 쓰는 Ruby/Node/Go/Python 툴체인)
           android: true
           dotnet: true
           haskell: true
-          large-packages: false
-          docker-images: false
+          large-packages: true      # 대용량 apt 패키지 제거
+          docker-images: true       # runner 프리인스톨 Docker 이미지 제거
           swap-storage: true
 
       - name: Set up Docker Buildx
