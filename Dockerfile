@@ -43,6 +43,13 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # ─────────────────────────────────────
+# ComfyUI 본체 최신화 (FLUX Kontext 노드 · ReferenceLatent · FluxKontextImageScale
+# 등이 ComfyUI 0.3.30+ 부터 native 지원 · base 이미지는 0.3.10 정도라 업데이트 필요)
+# ─────────────────────────────────────
+RUN cd ${COMFY_PATH} && git fetch --tags && git checkout master && git pull \
+    && pip install --no-cache-dir -r requirements.txt
+
+# ─────────────────────────────────────
 # 커스텀 노드 (이미 있으면 skip, 실패해도 빌드 계속)
 # ─────────────────────────────────────
 WORKDIR ${COMFY_PATH}/custom_nodes

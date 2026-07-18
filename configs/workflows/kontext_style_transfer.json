@@ -1,0 +1,127 @@
+{
+  "_meta": {
+    "workflow_id": "kontext-style-transfer",
+    "purpose": "FLUX.1 Kontext dev · content 이미지의 인물·구도 유지 + style 이미지의 화풍 흡수 · InstantStyle(SDXL) 보다 강력한 image editing 모델",
+    "notes": "FLUX Kontext 는 multi-image reference 지원 · content=참조1, style=참조2. cfg=1.0(FLUX 표준) · steps=20 · guidance=2.5. 시드/steps/prompt 는 tunable_nodes 참고.",
+    "tunable_nodes": {
+      "seed": "23",
+      "steps": "23",
+      "guidance": "21",
+      "positive_prompt": "6",
+      "content_image": "13",
+      "style_image": "14"
+    },
+    "requires_models": [
+      "diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors",
+      "text_encoders/t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "text_encoders/clip_l.safetensors",
+      "vae/ae.safetensors"
+    ]
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["11", 0],
+      "text": "Transform the first reference image into the visual style of the second reference image. Preserve the original subject identity, facial features, pose, composition, camera angle, proportions, clothing structure, and object placement. Apply only the second reference's brushwork, rendering technique, color palette, lighting mood, texture, and line quality"
+    },
+    "_meta": { "title": "Positive · 스타일 전이 지시" }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "clip": ["11", 0], "text": "" },
+    "_meta": { "title": "Negative (FLUX 는 대개 빈 값)" }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["23", 0], "vae": ["10", 0] },
+    "_meta": { "title": "VAE Decode" }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["8", 0], "filename_prefix": "kontext_style" },
+    "_meta": { "title": "결과 저장 · kontext_style_*.png" }
+  },
+  "10": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "ae.safetensors" },
+    "_meta": { "title": "VAE · ae.safetensors" }
+  },
+  "11": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux"
+    },
+    "_meta": { "title": "Dual CLIP (T5-XXL + CLIP-L)" }
+  },
+  "12": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": { "title": "FLUX.1 Kontext dev (fp8)" }
+  },
+  "13": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "content.png" },
+    "_meta": { "title": "content · 보존 대상" }
+  },
+  "14": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "style-reference.png" },
+    "_meta": { "title": "style · 참조 화풍" }
+  },
+  "15": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": { "image": ["13", 0] },
+    "_meta": { "title": "content · Kontext 표준 해상도로 스케일" }
+  },
+  "16": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": { "image": ["14", 0] },
+    "_meta": { "title": "style · Kontext 표준 해상도로 스케일" }
+  },
+  "17": {
+    "class_type": "VAEEncode",
+    "inputs": { "pixels": ["15", 0], "vae": ["10", 0] },
+    "_meta": { "title": "content → latent" }
+  },
+  "18": {
+    "class_type": "VAEEncode",
+    "inputs": { "pixels": ["16", 0], "vae": ["10", 0] },
+    "_meta": { "title": "style → latent" }
+  },
+  "19": {
+    "class_type": "ReferenceLatent",
+    "inputs": { "conditioning": ["6", 0], "latent": ["17", 0] },
+    "_meta": { "title": "content latent 을 conditioning 에 주입" }
+  },
+  "20": {
+    "class_type": "ReferenceLatent",
+    "inputs": { "conditioning": ["19", 0], "latent": ["18", 0] },
+    "_meta": { "title": "style latent 을 conditioning 에 주입 (2차)" }
+  },
+  "21": {
+    "class_type": "FluxGuidance",
+    "inputs": { "conditioning": ["20", 0], "guidance": 2.5 },
+    "_meta": { "title": "FLUX guidance (Kontext 표준 2.5)" }
+  },
+  "23": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["12", 0],
+      "positive": ["21", 0],
+      "negative": ["7", 0],
+      "latent_image": ["17", 0],
+      "seed": 20260718,
+      "steps": 20,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
+    },
+    "_meta": { "title": "KSampler · FLUX Kontext" }
+  }
+}

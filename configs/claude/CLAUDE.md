@@ -131,9 +131,12 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
 🟨 픽셀아트
   11) Game Item.json
 
-🎨 스타일 전이 (InstantStyle · content 이미지 유지 + style 이미지 화풍만 적용)
+🎨 스타일 전이 (InstantStyle SDXL · content 이미지 유지 + style 이미지 화풍만 적용)
   19) style_transfer_preserve.json — 보존 우선 · denoise 0.30 + style 0.55 + Depth+Canny
   20) style_transfer_strong.json   — 화풍 우선 · denoise 0.55 + style 0.85 + Depth
+
+🌈 스타일 전이 (FLUX Kontext dev · 더 강력한 image editing)
+  21) kontext_style_transfer.json  — Kontext + multi-reference · content+style 두 이미지 참조 · base 모델 편향 없이 진짜 화풍 이전
 
 🛠 기타
   12) seethrough.json
@@ -161,6 +164,7 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
 | **12) seethrough.json** | SeeThrough 모델 (별도, 큼) |
 | **19) style_transfer_preserve.json** | Juggernaut XL + ip-adapter-plus_sdxl_vit-h + ViT-H-14 clip_vision + controlnet-depth-sdxl-1.0 + controlnet-canny-sdxl-1.0 + Depth Anything V2 ViT-L |
 | **20) style_transfer_strong.json** | Juggernaut XL + ip-adapter-plus_sdxl_vit-h + ViT-H-14 clip_vision + controlnet-depth-sdxl-1.0 + Depth Anything V2 ViT-L |
+| **21) kontext_style_transfer.json** | flux1-dev-kontext_fp8_scaled + t5xxl_fp8_e4m3fn_scaled + clip_l + ae (FLUX VAE) |
 
 ### Step 4. 다운로드 실행
 
@@ -286,6 +290,34 @@ download_style_transfer() {
      "$M/depthanything/depth_anything_v2_vitl.pth" 1200 &
 
   wait
+}
+```
+
+**FLUX Kontext 스타일 전이 (21)**:
+```bash
+download_flux_kontext() {
+  # 라이선스 · FLUX.1 Kontext-dev · 개인/비상업만 무료 · 상업 사용 시 Kontext Pro/Max API 이용
+  # 총 ~17GB · Comfy-Org 미러 (HF gated 우회)
+  local BASE_ORG="$HF/Comfy-Org"
+
+  # 확산 모델 · fp8 scaled (~11GB)
+  dl "$BASE_ORG/flux1-kontext-dev_ComfyUI/resolve/main/split_files/diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors" \
+     "$M/diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors" 10000 &
+
+  # T5-XXL text encoder fp8 (~5GB · flux1-dev 계열과 공유)
+  dl "$BASE_ORG/flux1-dev/resolve/main/split_files/text_encoders/t5xxl_fp8_e4m3fn_scaled.safetensors" \
+     "$M/text_encoders/t5xxl_fp8_e4m3fn_scaled.safetensors" 4500 &
+
+  # CLIP-L (~250MB)
+  dl "$BASE_ORG/flux1-dev/resolve/main/split_files/text_encoders/clip_l.safetensors" \
+     "$M/text_encoders/clip_l.safetensors" 200 &
+
+  # FLUX VAE (~335MB)
+  dl "$BASE_ORG/flux1-dev/resolve/main/split_files/vae/ae.safetensors" \
+     "$M/vae/ae.safetensors" 300 &
+
+  wait
+  echo "[flux-kontext] 총 ~17GB · Network Volume 에 영구 저장 · 다음 Pod 부터 재사용"
 }
 ```
 
