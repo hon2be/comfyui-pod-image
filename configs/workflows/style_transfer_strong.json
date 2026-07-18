@@ -1,0 +1,148 @@
+{
+  "_meta": {
+    "workflow_id": "style-transfer-strong",
+    "purpose": "Workflow B · 화풍을 강하게 흡수, 원본 구조는 유지",
+    "notes": "denoise 0.55 · IPAdapter style-transfer 0.85 (0~100%) · Depth ControlNet 0.75 (0~70%). Canny 는 제거 (경계선이 회화적 붓 터치를 눌러버림). 스타일이 부족하면 style_strength 0.95 로. 인물이 무너지면 depth strength 1.0 로 올리세요.",
+    "tunable_nodes": {
+      "seed": "31",
+      "style_strength": "21",
+      "structure_depth_strength": "27",
+      "denoise": "31",
+      "steps": "31",
+      "cfg": "31",
+      "positive_prompt": "13",
+      "negative_prompt": "14",
+      "content_image": "10",
+      "style_image": "11"
+    }
+  },
+
+  "3": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "juggernautXL_ragnarok.safetensors" },
+    "_meta": { "title": "Checkpoint · Juggernaut XL (볼륨에 이미 있음)" }
+  },
+
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "content.png" },
+    "_meta": { "title": "content · 보존 대상" }
+  },
+  "11": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "style-reference.png" },
+    "_meta": { "title": "style · 참조 화풍" }
+  },
+
+  "12": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": ["10", 0],
+      "vae": ["3", 2]
+    },
+    "_meta": { "title": "content → latent" }
+  },
+
+  "13": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "painterly rendering in the style of the style reference. Preserve the original subject identity, facial features, pose, composition, camera angle, proportions, clothing structure, and object placement. Apply the reference's brushwork, rendering technique, color palette, lighting mood, texture, and line quality. Painting, artwork, illustration",
+      "clip": ["3", 1]
+    },
+    "_meta": { "title": "Positive · 강한 화풍 지시" }
+  },
+  "14": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "photograph, camera, film grain, hdr, dslr, realistic photo, watermark, text, logo, deformed, disfigured, extra limbs, blurry, low quality, bad anatomy, extra fingers, mutated hands, ugly, plastic, uncanny valley",
+      "clip": ["3", 1]
+    },
+    "_meta": { "title": "Negative · 사진 억제" }
+  },
+
+  "20": {
+    "class_type": "IPAdapterUnifiedLoader",
+    "inputs": {
+      "model": ["3", 0],
+      "preset": "PLUS (high strength)"
+    },
+    "_meta": { "title": "IPAdapter Loader · SDXL PLUS" }
+  },
+  "21": {
+    "class_type": "IPAdapterAdvanced",
+    "inputs": {
+      "model": ["20", 0],
+      "ipadapter": ["20", 1],
+      "image": ["11", 0],
+      "weight": 0.85,
+      "weight_type": "style transfer",
+      "combine_embeds": "concat",
+      "start_at": 0.0,
+      "end_at": 1.0,
+      "embeds_scaling": "V only"
+    },
+    "_meta": { "title": "IPAdapter · InstantStyle (강)" }
+  },
+
+  "25": {
+    "class_type": "DepthAnythingV2Preprocessor",
+    "inputs": {
+      "image": ["10", 0],
+      "ckpt_name": "depth_anything_v2_vitl.pth",
+      "resolution": 1024
+    },
+    "_meta": { "title": "Depth 전처리" }
+  },
+  "26": {
+    "class_type": "ControlNetLoader",
+    "inputs": { "control_net_name": "controlnet-depth-sdxl-1.0.safetensors" },
+    "_meta": { "title": "ControlNet · Depth" }
+  },
+  "27": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": ["13", 0],
+      "negative": ["14", 0],
+      "control_net": ["26", 0],
+      "image": ["25", 0],
+      "strength": 0.75,
+      "start_percent": 0.0,
+      "end_percent": 0.70
+    },
+    "_meta": { "title": "Depth 적용 · 구조 유지 (약간 완화)" }
+  },
+
+  "31": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["21", 0],
+      "positive": ["27", 0],
+      "negative": ["27", 1],
+      "latent_image": ["12", 0],
+      "seed": 20260718,
+      "steps": 30,
+      "cfg": 6.5,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.55
+    },
+    "_meta": { "title": "KSampler · 화풍 우선" }
+  },
+  "32": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["31", 0],
+      "vae": ["3", 2]
+    },
+    "_meta": { "title": "VAE Decode" }
+  },
+
+  "40": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["32", 0],
+      "filename_prefix": "style_strong"
+    },
+    "_meta": { "title": "결과 저장 · style_strong_*.png" }
+  }
+}

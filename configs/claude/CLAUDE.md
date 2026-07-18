@@ -108,7 +108,7 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
 ### Step 2. 동봉된 워크플로우 리스트 표시
 
 ```
-📂 사용 가능한 워크플로우 (18개)
+📂 사용 가능한 워크플로우 (20개)
 
 🇰🇷 한복/한국 전통
    1) Han.json              — 한복 캐릭터 (Juggernaut + 한복 LoRA + FaceID)
@@ -130,6 +130,10 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
 
 🟨 픽셀아트
   11) Game Item.json
+
+🎨 스타일 전이 (InstantStyle · content 이미지 유지 + style 이미지 화풍만 적용)
+  19) style_transfer_preserve.json — 보존 우선 · denoise 0.30 + style 0.55 + Depth+Canny
+  20) style_transfer_strong.json   — 화풍 우선 · denoise 0.55 + style 0.85 + Depth
 
 🛠 기타
   12) seethrough.json
@@ -155,6 +159,8 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
 | **8-10) 3D** | TripoSR/SV3D 모델 (옵션) |
 | **11) Game Item.json** | pixelArtDiffusionXL_spriteShaper |
 | **12) seethrough.json** | SeeThrough 모델 (별도, 큼) |
+| **19) style_transfer_preserve.json** | Juggernaut XL + ip-adapter-plus_sdxl_vit-h + ViT-H-14 clip_vision + controlnet-depth-sdxl-1.0 + controlnet-canny-sdxl-1.0 + Depth Anything V2 ViT-L |
+| **20) style_transfer_strong.json** | Juggernaut XL + ip-adapter-plus_sdxl_vit-h + ViT-H-14 clip_vision + controlnet-depth-sdxl-1.0 + Depth Anything V2 ViT-L |
 
 ### Step 4. 다운로드 실행
 
@@ -238,6 +244,65 @@ download_pixelart() {
   # pixelArtDiffusionXL — CivitAI 또는 사용자 직접 업로드
   echo "⚠️ pixelArtDiffusionXL_spriteShaper.safetensors는 사용자가 직접 받아야 합니다."
 }
+```
+
+**스타일 전이 (19, 20 공통 · InstantStyle)**:
+```bash
+download_style_transfer() {
+  # 체크포인트 · Juggernaut XL (한복 워크플로우에서 이미 받아뒀을 확률 높음)
+  if [ -f "$M/checkpoints/juggernautXL_ragnarok.safetensors" ] && \
+     [ "$(du -m "$M/checkpoints/juggernautXL_ragnarok.safetensors" | cut -f1)" -ge 6000 ]; then
+    echo "  ✅ Juggernaut XL 이미 있음 (한복 워크플로우와 공유)"
+  elif [ -n "$CIVITAI_TOKEN" ]; then
+    dl "https://civitai.com/api/download/models/1759168" \
+       "$M/checkpoints/juggernautXL_ragnarok.safetensors" 6000
+  else
+    echo "  ⚠️ Juggernaut XL 없음 · CIVITAI_TOKEN 미설정 · SDXL Base 로 폴백"
+    dl "$HF/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors" \
+       "$M/checkpoints/sd_xl_base_1.0.safetensors" 6800
+    echo "  💡 워크플로우 ckpt_name 을 sd_xl_base_1.0.safetensors 로 수정 필요"
+  fi
+
+  # IPAdapter · InstantStyle 은 style transfer weight_type 만 쓰면 이 한 파일로 커버
+  dl "$HF/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors" \
+     "$M/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors" 700 &
+
+  # CLIP Vision · IPAdapterUnifiedLoader 가 자동 참조
+  dl "$HF/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors" \
+     "$M/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors" 2400 &
+
+  # ControlNet Depth · 구조 보존 (Workflow A · B 공통 필수)
+  dl "$HF/diffusers/controlnet-depth-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.safetensors" \
+     "$M/controlnet/controlnet-depth-sdxl-1.0.safetensors" 2400 &
+
+  # ControlNet Canny · Workflow A (preserve) 만 · 오브젝트 경계 유지
+  dl "$HF/diffusers/controlnet-canny-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.safetensors" \
+     "$M/controlnet/controlnet-canny-sdxl-1.0.safetensors" 2400 &
+
+  # Depth Anything V2 ViT-L · Depth 전처리 노드 checkpoint
+  # (전처리 노드가 첫 사용 시 자동 다운로드하지만 실패 대비 선다운)
+  mkdir -p "$M/depthanything"
+  dl "$HF/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth" \
+     "$M/depthanything/depth_anything_v2_vitl.pth" 1200 &
+
+  wait
+}
+```
+
+**스타일 전이 사용법** (Claude Code 안내용):
+```
+1. 브라우저 · ComfyUI URL (https://[POD-ID]-3000.proxy.runpod.net)
+2. Menu → Workflow → Open → style_transfer_preserve.json (또는 strong)
+3. Node 10 (content) 에 원본 이미지 드래그 앤 드롭
+4. Node 11 (style) 에 참조 화풍 이미지 드래그 앤 드롭
+5. Node 31 (KSampler) 에서 seed / denoise / steps 조정
+6. Node 21 (IPAdapterAdvanced) 에서 weight 로 스타일 강도
+7. Queue Prompt
+
+또는 로컬 오케스트레이션:
+    python3 ~/.claude/skills/comfyui-remote/run_style_transfer.py \
+        --content ./content.png --style ./style-reference.png \
+        --workflow preserve --output ./result.png
 ```
 
 ### Step 5. 진행 상황 표시 + 완료 후 ComfyUI 재시작
