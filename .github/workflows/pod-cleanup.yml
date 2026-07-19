@@ -1,0 +1,75 @@
+name: RunPod Auto Cleanup
+
+# 안전망: WSL sleep · 로컬 종료 · 그 어떤 상황에서도 GH Actions 가 클라우드에서
+# 매 30분 실행 · 2시간 초과 RUNNING Pod 자동 삭제.
+#
+# Prerequisites:
+# - Repo Settings → Secrets → RUNPOD_API_KEY 등록 필요
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # 매 30분
+  workflow_dispatch:  # 수동 트리거도 허용
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete pods older than MAX_HOURS
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          MAX_HOURS: 2
+        run: |
+          set -e
+
+          if [ -z "$RUNPOD_API_KEY" ]; then
+            echo "❌ RUNPOD_API_KEY 시크릿 미설정 · Repo Settings → Secrets 에 추가"
+            exit 1
+          fi
+
+          echo "== $(date -u) 활성 Pod 조회 =="
+          response=$(curl -s -H "Authorization: Bearer $RUNPOD_API_KEY" \
+                     https://rest.runpod.io/v1/pods)
+
+          echo "$response" | python3 -c "
+          import json, sys, os
+          from datetime import datetime, timezone, timedelta
+
+          max_hours = int(os.environ.get('MAX_HOURS', '2'))
+          data = json.load(sys.stdin)
+          pods = data if isinstance(data, list) else data.get('pods', [])
+          now = datetime.now(timezone.utc)
+          to_delete = []
+
+          for p in pods:
+              if p.get('desiredStatus') != 'RUNNING':
+                  continue
+              started = p.get('lastStartedAt', '')
+              try:
+                  # '2026-07-19 05:45:13.118 +0000 UTC' 형식
+                  s = started.replace(' +0000 UTC', '+00:00').replace(' ', 'T')
+                  dt = datetime.fromisoformat(s)
+                  age = (now - dt).total_seconds() / 3600
+                  print(f'  {p[\"id\"]} · {p.get(\"name\", \"?\")} · age={age:.1f}h')
+                  if age > max_hours:
+                      to_delete.append(p['id'])
+              except Exception as e:
+                  print(f'  {p[\"id\"]} · parse err: {e}')
+
+          if not to_delete:
+              print(f'✅ {max_hours}시간 초과 Pod 없음')
+          else:
+              print(f'⚠️ 삭제 대상 {len(to_delete)}개')
+              with open('/tmp/to_delete.txt', 'w') as f:
+                  for pid in to_delete: f.write(pid + '\n')
+          "
+
+          if [ -f /tmp/to_delete.txt ]; then
+            while read pid; do
+              echo "  삭제 · $pid"
+              curl -s -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" \
+                   https://rest.runpod.io/v1/pods/$pid
+              echo ""
+            done < /tmp/to_delete.txt
+          fi
