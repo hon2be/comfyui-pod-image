@@ -1,0 +1,141 @@
+{
+  "_meta": {
+    "workflow_id": "redux-style-transfer",
+    "purpose": "FLUX.1 Redux · content 이미지 인물·구도 유지 + style 이미지 화풍만 자연스럽게 이전 · BFL 이 restyling / dual-image reference 공식 지원 표방하는 툴",
+    "notes": "FLUX Kontext dev 재활용 (같은 UNET) · Redux adapter + SigCLIP vision 만 추가. Redux 는 CLIPVisionEncode + StyleModelApply 로 style 을 conditioning 에 주입 · content 는 VAEEncode → KSampler 의 latent 초기값으로 · denoise 0.5~0.85 범위에서 조절.",
+    "tunable_nodes": {
+      "seed": "23",
+      "steps": "23",
+      "denoise": "23",
+      "guidance": "21",
+      "positive_prompt": "6",
+      "content_image": "13",
+      "style_image": "14"
+    },
+    "requires_models": [
+      "diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors",
+      "text_encoders/t5xxl_fp8_e4m3fn.safetensors",
+      "text_encoders/clip_l.safetensors",
+      "vae/ae.safetensors",
+      "style_models/flux1-redux-dev.safetensors",
+      "clip_vision/sigclip_vision_patch14_384.safetensors"
+    ]
+  },
+
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["11", 0],
+      "text": "A watercolor painting reinterpretation, soft washes, loose brushstrokes, painterly aesthetic, natural pigment bleeding, preserving the subjects and composition of the reference image"
+    },
+    "_meta": { "title": "Positive · 스타일 유도 프롬프트" }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "clip": ["11", 0], "text": "" },
+    "_meta": { "title": "Negative (빈 값)" }
+  },
+
+  "10": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "ae.safetensors" },
+    "_meta": { "title": "VAE · ae.safetensors" }
+  },
+  "11": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux"
+    },
+    "_meta": { "title": "Dual CLIP (T5-XXL + CLIP-L)" }
+  },
+  "12": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": { "title": "FLUX UNET (Kontext dev · Redux 도 호환)" }
+  },
+
+  "13": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "content.png" },
+    "_meta": { "title": "content · 인물·구도 유지" }
+  },
+  "14": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "style-reference.png" },
+    "_meta": { "title": "style · 화풍 참조" }
+  },
+
+  "15": {
+    "class_type": "StyleModelLoader",
+    "inputs": { "style_model_name": "flux1-redux-dev.safetensors" },
+    "_meta": { "title": "FLUX Redux adapter" }
+  },
+  "16": {
+    "class_type": "CLIPVisionLoader",
+    "inputs": { "clip_name": "sigclip_vision_patch14_384.safetensors" },
+    "_meta": { "title": "SigCLIP Vision (Redux 표준)" }
+  },
+  "17": {
+    "class_type": "CLIPVisionEncode",
+    "inputs": {
+      "clip_vision": ["16", 0],
+      "image": ["14", 0],
+      "crop": "center"
+    },
+    "_meta": { "title": "style 이미지 → CLIP Vision 임베딩" }
+  },
+  "18": {
+    "class_type": "StyleModelApply",
+    "inputs": {
+      "conditioning": ["6", 0],
+      "style_model": ["15", 0],
+      "clip_vision_output": ["17", 0]
+    },
+    "_meta": { "title": "Redux · style embedding 을 conditioning 에 병합" }
+  },
+
+  "20": {
+    "class_type": "VAEEncode",
+    "inputs": { "pixels": ["13", 0], "vae": ["10", 0] },
+    "_meta": { "title": "content → latent (img2img 초기값)" }
+  },
+
+  "21": {
+    "class_type": "FluxGuidance",
+    "inputs": { "conditioning": ["18", 0], "guidance": 3.5 },
+    "_meta": { "title": "FLUX guidance" }
+  },
+
+  "23": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["12", 0],
+      "positive": ["21", 0],
+      "negative": ["7", 0],
+      "latent_image": ["20", 0],
+      "seed": 20260719,
+      "steps": 20,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.75
+    },
+    "_meta": { "title": "KSampler · denoise 0.75 로 content 구도 유지" }
+  },
+
+  "24": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["23", 0], "vae": ["10", 0] },
+    "_meta": { "title": "VAE Decode" }
+  },
+  "25": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["24", 0], "filename_prefix": "redux_style" },
+    "_meta": { "title": "결과 저장 · redux_style_*.png" }
+  }
+}

@@ -135,8 +135,11 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
   19) style_transfer_preserve.json — 보존 우선 · denoise 0.30 + style 0.55 + Depth+Canny
   20) style_transfer_strong.json   — 화풍 우선 · denoise 0.55 + style 0.85 + Depth
 
-🌈 스타일 전이 (FLUX Kontext dev · 더 강력한 image editing)
-  21) kontext_style_transfer.json  — Kontext + multi-reference · content+style 두 이미지 참조 · base 모델 편향 없이 진짜 화풍 이전
+🌈 스타일 전이 (FLUX Kontext dev · 텍스트 기반 image editing)
+  21) kontext_style_transfer.json  — Kontext + dual-reference (편집 특화 · 스타일 전이는 약간 미묘)
+
+💧 스타일 전이 (FLUX Redux · BFL 공식 restyling 툴)
+  22) redux_style_transfer.json    — Redux adapter + SigCLIP · content latent + style vision embedding · 수채화 등 화풍 전이 특화
 
 🛠 기타
   12) seethrough.json
@@ -164,7 +167,8 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
 | **12) seethrough.json** | SeeThrough 모델 (별도, 큼) |
 | **19) style_transfer_preserve.json** | Juggernaut XL + ip-adapter-plus_sdxl_vit-h + ViT-H-14 clip_vision + controlnet-depth-sdxl-1.0 + controlnet-canny-sdxl-1.0 + Depth Anything V2 ViT-L |
 | **20) style_transfer_strong.json** | Juggernaut XL + ip-adapter-plus_sdxl_vit-h + ViT-H-14 clip_vision + controlnet-depth-sdxl-1.0 + Depth Anything V2 ViT-L |
-| **21) kontext_style_transfer.json** | flux1-dev-kontext_fp8_scaled + t5xxl_fp8_e4m3fn_scaled + clip_l + ae (FLUX VAE) |
+| **21) kontext_style_transfer.json** | flux1-dev-kontext_fp8_scaled + t5xxl_fp8_e4m3fn + clip_l + ae (FLUX VAE) |
+| **22) redux_style_transfer.json** | Kontext 세트(위) + flux1-redux-dev (adapter) + sigclip_vision_patch14_384 (vision encoder) |
 
 ### Step 4. 다운로드 실행
 
@@ -318,6 +322,27 @@ download_flux_kontext() {
 
   wait
   echo "[flux-kontext] 총 ~17GB · Network Volume 에 영구 저장 · 다음 Pod 부터 재사용"
+}
+```
+
+**FLUX Redux 스타일 전이 (22) · BFL 공식 restyling / dual-image**:
+```bash
+download_flux_redux() {
+  # 라이선스 · FLUX.1 Redux-dev · 개인/비상업 · https://bfl.ai/blog/24-11-21-tools
+  # 사전 필요 · HuggingFace 에서 라이선스 accept · https://huggingface.co/black-forest-labs/FLUX.1-Redux-dev
+  # 기존 FLUX Kontext 볼륨 재활용 (UNET + T5 + CLIP-L + VAE) · Redux adapter + SigCLIP 만 추가
+  mkdir -p "$M/style_models" "$M/clip_vision"
+
+  # Redux adapter (~120MB · gated · HF_TOKEN 필수)
+  dl "$HF/black-forest-labs/FLUX.1-Redux-dev/resolve/main/flux1-redux-dev.safetensors" \
+     "$M/style_models/flux1-redux-dev.safetensors" 100 &
+
+  # SigCLIP Vision encoder (~854MB · Comfy-Org ungated 미러)
+  dl "$HF/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors" \
+     "$M/clip_vision/sigclip_vision_patch14_384.safetensors" 800 &
+
+  wait
+  echo "[flux-redux] Kontext 있으면 · 이 두 파일 추가로 ~1GB · Restyling / dual-image 지원"
 }
 ```
 
