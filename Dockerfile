@@ -48,16 +48,18 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # 커스텀 노드가 요구하는 Python deps · 볼륨 재사용성 위해 이미지에 bake
 # (매 부팅 시 pip install 하면 느림)
 # ─────────────────────────────────────
+# ComfyUI 자체 requirements.txt · 최신 master 기준 · 모든 core deps 확보
+# (comfy-aimdo/kitchen/torchsde/etc. 일일이 지정 필요 없음)
+RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git /tmp/comfyui-req \
+    && pip install --no-cache-dir -r /tmp/comfyui-req/requirements.txt \
+    && rm -rf /tmp/comfyui-req
+
+# 커스텀 노드 전용 deps (ComfyUI core 에는 없는 것)
 RUN pip install --no-cache-dir \
         segment_anything piexif ultralytics dill \
         insightface onnxruntime \
-        transformers \
-        opencv-python-headless scipy scikit-image einops \
-        fastapi uvicorn websockets \
-        "huggingface_hub[hf_transfer]" \
-        sqlalchemy alembic aiohttp av pyyaml \
-        spandrel kornia soundfile blake3 \
-        comfy-aimdo comfy-kitchen
+        opencv-python-headless scikit-image \
+        "huggingface_hub[hf_transfer]"
 
 # torch 강제 재설치 · CUDA 버전 확보 (다른 pip 이 CPU 버전으로 덮어쓰는 것 방지)
 # base image (runpod/pytorch:2.4.0-cuda12.4.1) 가 지정한 torch 를 유지하려면 이 단계 필수.
