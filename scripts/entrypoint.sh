@@ -36,10 +36,21 @@ mkdir -p $WORKING_DIR
 
 # ─────────────────────────────────────
 # 3. ComfyUI 부트스트랩 (없을 때만 · 한 번)
+#    있으면 · 매 부팅 시 git pull 로 최신 유지 (파이썬 deps 이미지 층과 동기화)
 # ─────────────────────────────────────
 if [ ! -f "$COMFY_PATH/main.py" ]; then
     echo "⚠️  ComfyUI 볼륨에 없음 · bootstrap 실행"
     /usr/local/bin/bootstrap-comfyui.sh
+else
+    if [ -d "$COMFY_PATH/.git" ]; then
+        echo "🔄 ComfyUI git pull (볼륨 최신화)"
+        cd $COMFY_PATH && git pull --rebase --autostash 2>&1 | tail -5 || \
+            echo "⚠️  git pull 실패 · 그대로 진행"
+    else
+        echo "⚠️  ComfyUI 가 git repo 아님 · 강제 재클론"
+        rm -rf "$COMFY_PATH.old" && mv "$COMFY_PATH" "$COMFY_PATH.old" 2>/dev/null || true
+        /usr/local/bin/bootstrap-comfyui.sh
+    fi
 fi
 
 # ─────────────────────────────────────
