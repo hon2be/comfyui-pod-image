@@ -36,7 +36,8 @@ for repo in \
     "https://github.com/huchenlei/ComfyUI-openpose-editor.git" \
     "https://github.com/GeekyGhost/ComfyUI-GeekyRemB.git" \
     "https://github.com/time-river/ComfyUI-CLIPSeg.git" \
-    "https://github.com/ConstantineB6/Comfy-Pilot.git"; do
+    "https://github.com/ConstantineB6/Comfy-Pilot.git" \
+    "https://github.com/XLabs-AI/x-flux-comfyui.git"; do
     name=$(basename "$repo" .git)
     if [ -d "$name" ]; then
         echo "  ✅ 이미 있음: $name"
@@ -51,7 +52,7 @@ echo "[4/4] 커스텀 노드 pip install"
 for node in ComfyUI-Impact-Pack ComfyUI-Impact-Subpack ComfyUI_IPAdapter_plus \
             ComfyUI-GeekyRemB ComfyUI_LayerStyle ComfyUI-IC-Light \
             rgthree-comfy comfyui_controlnet_aux ComfyUI-CLIPSeg \
-            ComfyUI_essentials; do
+            ComfyUI_essentials x-flux-comfyui; do
     req="$VOLUME_PATH/custom_nodes/${node}/requirements.txt"
     if [ -f "$req" ]; then
         pip install --no-cache-dir -r "$req" || echo "  ⚠️ $node 의존성 일부 실패"

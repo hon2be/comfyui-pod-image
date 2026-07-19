@@ -139,7 +139,10 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
   21) kontext_style_transfer.json  — Kontext + dual-reference (편집 특화 · 스타일 전이는 약간 미묘)
 
 💧 스타일 전이 (FLUX Redux · BFL 공식 restyling 툴)
-  22) redux_style_transfer.json    — Redux adapter + SigCLIP · content latent + style vision embedding · 수채화 등 화풍 전이 특화
+  22) redux_style_transfer.json    — Redux adapter + SigCLIP · content latent + style vision embedding · 화풍 차이 큰 케이스에 강함 (사진↔유화 등)
+
+🎨 스타일 전이 (XLabs FLUX IPAdapter v2 · 세밀 dual-image)
+  23) flux_ipadapter_style.json    — Cross-attention 각 층에 style 벡터 주입 · Redux 대비 미묘한 텍스처·붓 터치까지 이전 · 같은 계열 화풍 (지브리↔지브리) 에서도 세부 이전 잘 됨
 
 🛠 기타
   12) seethrough.json
@@ -343,6 +346,21 @@ download_flux_redux() {
 
   wait
   echo "[flux-redux] Kontext 있으면 · 이 두 파일 추가로 ~1GB · Restyling / dual-image 지원"
+}
+```
+
+**XLabs FLUX IPAdapter (23) · 진짜 dual-image style transfer**:
+```bash
+download_flux_ipadapter() {
+  # XLabs 커스텀 노드는 · bootstrap-comfyui.sh 가 clone (x-flux-comfyui)
+  # 모델만 여기서 · ~1.4GB · ungated
+  mkdir -p "$M/xlabs/ipadapters"
+
+  dl "$HF/XLabs-AI/flux-ip-adapter-v2/resolve/main/ip_adapter.safetensors" \
+     "$M/xlabs/ipadapters/ip_adapter.safetensors" 1000 &
+
+  wait
+  echo "[flux-ipadapter] XLabs FLUX IPAdapter v2 · style img 을 cross-attention 각 층에 주입 · Redux 대비 세밀한 텍스처 이전"
 }
 ```
 
