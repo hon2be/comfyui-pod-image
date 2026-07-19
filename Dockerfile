@@ -10,7 +10,7 @@
 #   - ComfyUI 코드 + 커스텀 노드 소스 + 모델 = 전부 볼륨 (`esjmoaksvu`)
 #   - 부팅 시간: 20분 → 2~3분
 
-FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
 
 LABEL maintainer="honeybee"
 LABEL description="Slim base · ComfyUI runtime resides on network volume"
@@ -63,9 +63,10 @@ RUN pip install --no-cache-dir \
 
 # torch 강제 재설치 · CUDA 버전 확보 (다른 pip 이 CPU 버전으로 덮어쓰는 것 방지)
 # base image (runpod/pytorch:2.4.0-cuda12.4.1) 가 지정한 torch 를 유지하려면 이 단계 필수.
+# torch 2.8 · CUDA 12.8 (base image 와 일치) · x-flux-comfyui 등 최신 DTensor API 지원
 RUN pip install --no-cache-dir --force-reinstall \
-        torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
-        --index-url https://download.pytorch.org/whl/cu124
+        torch==2.8.0 torchvision torchaudio \
+        --index-url https://download.pytorch.org/whl/cu128
 
 # 패키지 버전 핀 (custom node requirements가 downgrade 방지)
 RUN pip install --no-cache-dir \
