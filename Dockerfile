@@ -69,7 +69,7 @@ RUN pip install --no-cache-dir \
 # ─────────────────────────────────────
 COPY configs/workflows /opt/workflows-template
 COPY configs/claude /opt/claude-template
-COPY scripts/entrypoint-slim.sh /usr/local/bin/entrypoint.sh
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/bootstrap-comfyui.sh /usr/local/bin/bootstrap-comfyui.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/bootstrap-comfyui.sh
 
