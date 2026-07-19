@@ -1,41 +1,43 @@
-# ComfyUI + 커스텀 노드 + Claude Code + Comfy-Pilot MCP 미리 설치
-# 모델은 CLAUDE.md 기반으로 Pod 첫 부팅 시 Claude Code가 자동 다운로드
+# 슬림 이미지 · ComfyUI 본체는 볼륨에 상주 · 이미지는 base + 얇은 config layer 만
+#
+# 기존 fat 이미지 문제:
+#   - 20GB · 매 Pod 부팅 시 host에 없으면 pull 10~20분
+#   - Community Cloud는 host 캐시 히트 확률 낮음
+#
+# 슬림 이미지 원리:
+#   - Base = runpod/pytorch (~5GB · RunPod 공식이라 대부분 host에 이미 캐시됨)
+#   - 우리 layer = 500MB 정도 (system deps + custom node pip deps + configs + entrypoint)
+#   - ComfyUI 코드 + 커스텀 노드 소스 + 모델 = 전부 볼륨 (`esjmoaksvu`)
+#   - 부팅 시간: 20분 → 2~3분
 
-FROM runpod/stable-diffusion:comfy-ui-6.0.0
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 LABEL maintainer="honeybee"
-LABEL description="ComfyUI + IPAdapter + FaceID + Wan2.2 + Claude Code + Comfy-Pilot MCP"
+LABEL description="Slim base · ComfyUI runtime resides on network volume"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
-# ─────────────────────────────────────
-# 환경변수 (RunPod 콘솔에서 override 가능)
-# ─────────────────────────────────────
-ENV COMFY_PATH=/ComfyUI
+# 런타임 환경변수 (RunPod 콘솔에서 override 가능)
 ENV VOLUME_PATH=/workspace/comfyui
-
-# 🔑 포트 옵션 (실행 시 변경 가능)
+ENV COMFY_PATH=/workspace/comfyui/ComfyUI
 ENV COMFYUI_PORT=3000
 ENV COMFYUI_HOST=0.0.0.0
-
-# 작업 경로 (옵션)
 ENV WORKFLOWS_PATH=/workspace/comfyui/user/default/workflows
 ENV WORKING_DIR=/workspace/work
-
-# 모델 자동 다운로드 (Claude가 CLAUDE.md 보고 처리)
 ENV AUTO_DOWNLOAD_MODELS=true
 
 # ─────────────────────────────────────
-# 시스템 패키지
+# 시스템 패키지 (얇게)
 # ─────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl wget git tmux htop nano vim ca-certificates jq \
         ffmpeg libgl1 libglib2.0-0 build-essential \
+        gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
 # ─────────────────────────────────────
-# Node.js 20 + Claude Code
+# Node.js + Claude Code
 # ─────────────────────────────────────
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
@@ -43,51 +45,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # ─────────────────────────────────────
-# ComfyUI 본체 최신화 (FLUX Kontext 노드 · ReferenceLatent · FluxKontextImageScale
-# 등이 ComfyUI 0.3.30+ 부터 native 지원 · base 이미지는 0.3.10 정도라 업데이트 필요)
-# ─────────────────────────────────────
-RUN cd ${COMFY_PATH} && git fetch --tags && git checkout master && git pull \
-    && pip install --no-cache-dir -r requirements.txt
-
-# ─────────────────────────────────────
-# 커스텀 노드 (이미 있으면 skip, 실패해도 빌드 계속)
-# ─────────────────────────────────────
-WORKDIR ${COMFY_PATH}/custom_nodes
-
-RUN for repo in \
-        "https://github.com/ltdrdata/ComfyUI-Manager.git" \
-        "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git" \
-        "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git" \
-        "https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git" \
-        "https://github.com/Fannovel16/comfyui_controlnet_aux.git" \
-        "https://github.com/cubiq/ComfyUI_essentials.git" \
-        "https://github.com/rgthree/rgthree-comfy.git" \
-        "https://github.com/chflame163/ComfyUI_LayerStyle.git" \
-        "https://github.com/kijai/ComfyUI-IC-Light.git" \
-        "https://github.com/huchenlei/ComfyUI-openpose-editor.git" \
-        "https://github.com/GeekyGhost/ComfyUI-GeekyRemB.git" \
-        "https://github.com/time-river/ComfyUI-CLIPSeg.git" \
-        "https://github.com/ConstantineB6/Comfy-Pilot.git"; do \
-        name=$(basename "$repo" .git); \
-        if [ -d "$name" ]; then \
-            echo "✅ 이미 있음: $name"; \
-        else \
-            echo "📥 git clone $name"; \
-            git clone --depth 1 "$repo" || echo "⚠️ $name clone 실패 (계속 진행)"; \
-        fi; \
-    done
-
-# ─────────────────────────────────────
-# PyTorch 2.7.0 + CUDA 12.8 (Blackwell SM 12.0 지원)
-# NVIDIA RTX PRO 4500 등 Blackwell 아키텍처 GPU 필수
-# 기본 이미지의 PyTorch(2.6.x/cu124)는 SM 9.0까지만 지원 → SM 12.0에서 CUDA kernel 오류 발생
-# ─────────────────────────────────────
-RUN pip install --no-cache-dir \
-        torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 \
-        --index-url https://download.pytorch.org/whl/cu128
-
-# ─────────────────────────────────────
-# 핵심 Python 패키지 — Impact-Pack/IPAdapter/CLIPSeg 필수 의존성
+# 커스텀 노드가 요구하는 Python deps · 볼륨 재사용성 위해 이미지에 bake
+# (매 부팅 시 pip install 하면 느림)
 # ─────────────────────────────────────
 RUN pip install --no-cache-dir \
         segment_anything piexif ultralytics dill \
@@ -97,95 +56,22 @@ RUN pip install --no-cache-dir \
         fastapi uvicorn websockets \
         "huggingface_hub[hf_transfer]"
 
-# ─────────────────────────────────────
-# 각 커스텀 노드의 requirements.txt 설치 (있는 경우만)
-# ─────────────────────────────────────
-RUN for node in ComfyUI-Impact-Pack ComfyUI-Impact-Subpack ComfyUI_IPAdapter_plus \
-                ComfyUI-GeekyRemB ComfyUI_LayerStyle ComfyUI-IC-Light \
-                rgthree-comfy comfyui_controlnet_aux ComfyUI-CLIPSeg \
-                ComfyUI_essentials; do \
-        req="${COMFY_PATH}/custom_nodes/${node}/requirements.txt"; \
-        if [ -f "$req" ]; then \
-            echo "📦 [$node] requirements.txt 설치"; \
-            pip install --no-cache-dir -r "$req" || echo "⚠️ $node 의존성 일부 실패 (계속)"; \
-        else \
-            echo "ℹ️ [$node] requirements.txt 없음 (skip)"; \
-        fi; \
-    done; \
-    if [ -d "${COMFY_PATH}/custom_nodes/Comfy-Pilot" ]; then \
-        echo "📦 Comfy-Pilot editable install"; \
-        pip install --no-cache-dir -e "${COMFY_PATH}/custom_nodes/Comfy-Pilot" \
-            || echo "⚠️ Comfy-Pilot pyproject 설치 실패 (수동 의존성으로 대체)"; \
-    fi
-
-# ─────────────────────────────────────
-# 패키지 버전 핀 (CLIPSeg/IPAdapter requirements.txt가 numpy/transformers/pillow를 다운그레이드하는 것 방지)
-# 반드시 모든 requirements.txt 설치 이후에 실행 — 순서 중요
-# ─────────────────────────────────────
+# 패키지 버전 핀 (custom node requirements가 downgrade 방지)
 RUN pip install --no-cache-dir \
-    "numpy>=1.26.4" \
-    "pillow>=10.1.0" \
-    "transformers>=4.45.0" \
-    "protobuf>=4.25.1"
+        "numpy>=1.26.4" \
+        "pillow>=10.1.0" \
+        "transformers>=4.45.0" \
+        "protobuf>=4.25.1"
 
 # ─────────────────────────────────────
-# CLIPSeg __init__.py 생성
-# time-river/ComfyUI-CLIPSeg 레포는 실제 노드 파일이 custom_nodes/ 하위에 있어
-# ComfyUI가 자동 탐색하지 못하므로 re-export __init__.py 생성
-# ─────────────────────────────────────
-RUN printf '%s\n' \
-    'import sys, os' \
-    'sys.path.insert(0, os.path.join(os.path.dirname(__file__), "custom_nodes"))' \
-    'from clipseg import NODE_CLASS_MAPPINGS' \
-    'NODE_DISPLAY_NAME_MAPPINGS = {}' \
-    '__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]' \
-    > ${COMFY_PATH}/custom_nodes/ComfyUI-CLIPSeg/__init__.py
-
-# ─────────────────────────────────────
-# ComfyUI 호환성 패치: Impact-Pack
-# comfy.samplers.SCHEDULER_HANDLERS 속성이 현재 ComfyUI 버전에 없음
-# getattr fallback으로 SCHEDULER_NAMES를 사용하도록 패치 (버전 업 시에도 안전)
-# ─────────────────────────────────────
-RUN python - <<'PYEOF'
-import re, pathlib
-
-target = pathlib.Path("/ComfyUI/custom_nodes/ComfyUI-Impact-Pack/modules/impact/core.py")
-if target.exists():
-    src = target.read_text()
-    patched = src.replace(
-        "return list(comfy.samplers.SCHEDULER_HANDLERS) + ADDITIONAL_SCHEDULERS",
-        "handlers = getattr(comfy.samplers, 'SCHEDULER_HANDLERS', comfy.samplers.SCHEDULER_NAMES)\n    return list(handlers) + ADDITIONAL_SCHEDULERS"
-    )
-    if patched != src:
-        target.write_text(patched)
-        print("✅ Impact-Pack core.py 패치 완료")
-    else:
-        print("ℹ️  이미 패치됨 또는 대상 라인 없음 (skip)")
-else:
-    print("⚠️  core.py 없음 (skip)")
-PYEOF
-
-# ─────────────────────────────────────
-# Impact-Pack/Subpack 정상 로드 검증
-# ─────────────────────────────────────
-RUN python -c "import segment_anything, ultralytics, insightface, transformers; print('✅ 핵심 패키지 import OK')" \
-    || (echo "❌ 핵심 패키지 import 실패" && exit 1)
-
-# ─────────────────────────────────────
-# 사용자 워크플로우 JSON (이미지에 동봉)
+# 사용자 워크플로우 JSON + CLAUDE.md (이미지에 동봉)
+# 볼륨 부트스트랩 스크립트도 함께
 # ─────────────────────────────────────
 COPY configs/workflows /opt/workflows-template
-
-# ─────────────────────────────────────
-# Claude Code 설정 + CLAUDE.md (모델 자동 다운로드 명세)
-# ─────────────────────────────────────
 COPY configs/claude /opt/claude-template
-
-# ─────────────────────────────────────
-# Entrypoint + Helper 스크립트
-# ─────────────────────────────────────
-COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY scripts/entrypoint-slim.sh /usr/local/bin/entrypoint.sh
+COPY scripts/bootstrap-comfyui.sh /usr/local/bin/bootstrap-comfyui.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/bootstrap-comfyui.sh
 
 WORKDIR /workspace
 EXPOSE 3000 8188 8888 22
