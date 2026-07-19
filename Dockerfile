@@ -54,7 +54,9 @@ RUN pip install --no-cache-dir \
         transformers \
         opencv-python-headless scipy scikit-image einops \
         fastapi uvicorn websockets \
-        "huggingface_hub[hf_transfer]"
+        "huggingface_hub[hf_transfer]" \
+        sqlalchemy alembic aiohttp av pyyaml \
+        spandrel kornia soundfile
 
 # 패키지 버전 핀 (custom node requirements가 downgrade 방지)
 RUN pip install --no-cache-dir \
