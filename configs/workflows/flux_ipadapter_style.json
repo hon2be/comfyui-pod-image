@@ -1,0 +1,159 @@
+{
+  "_meta": {
+    "workflow_id": "flux-ipadapter-style",
+    "purpose": "XLabs FLUX IPAdapter + Watercolor LoRA · content 이미지 인물·구도 유지 + style 이미지 화풍 이전 · Redux/Kontext 대비 세밀 텍스처 이전",
+    "notes": "LoRA 로 base FLUX 를 watercolor 로 편향 · IPAdapter 로 style ref 이미지의 세부 텍스처를 cross-attention 에 주입 · content 는 VAEEncode → KSampler img2img 로 구도 유지",
+    "tunable_nodes": {
+      "seed": "23",
+      "steps": "23",
+      "denoise": "23",
+      "ip_scale": "18",
+      "lora_strength": "30",
+      "guidance": "21",
+      "positive_prompt": "6",
+      "content_image": "13",
+      "style_image": "14"
+    },
+    "requires_models": [
+      "diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors",
+      "text_encoders/t5xxl_fp8_e4m3fn.safetensors",
+      "text_encoders/clip_l.safetensors",
+      "vae/ae.safetensors",
+      "loras/flux_watercolor_aquarell_v2.safetensors",
+      "xlabs/ipadapters/ip_adapter.safetensors",
+      "clip_vision/sigclip_vision_patch14_384.safetensors"
+    ]
+  },
+
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["11", 0],
+      "text": "aquarell watercolor painting, soft washes, loose brushwork, warm palette, painterly texture, preserving the composition and characters"
+    },
+    "_meta": { "title": "Positive · 화풍 유도" }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "clip": ["11", 0], "text": "" },
+    "_meta": { "title": "Negative" }
+  },
+
+  "10": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "ae.safetensors" },
+    "_meta": { "title": "VAE" }
+  },
+  "11": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux"
+    },
+    "_meta": { "title": "Dual CLIP" }
+  },
+  "12": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": { "title": "FLUX UNET" }
+  },
+
+  "13": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "content.png" },
+    "_meta": { "title": "content · 인물·구도" }
+  },
+  "14": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "style-reference.png" },
+    "_meta": { "title": "style · 화풍 참조" }
+  },
+
+  "30": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": ["12", 0],
+      "clip": ["11", 0],
+      "lora_name": "flux_watercolor_aquarell_v2.safetensors",
+      "strength_model": 0.6,
+      "strength_clip": 0.6
+    },
+    "_meta": { "title": "Watercolor LoRA (SebastianBodza Aquarell v2)" }
+  },
+
+  "17": {
+    "class_type": "LoadFluxIPAdapter",
+    "inputs": {
+      "ipadatper": "ip_adapter.safetensors",
+      "clip_vision": "clip_vit_large_patch14.safetensors",
+      "provider": "GPU"
+    },
+    "_meta": { "title": "XLabs FLUX IPAdapter · OpenAI CLIP ViT-L/14 (768 dim)" }
+  },
+  "15": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": ["14", 0],
+      "upscale_method": "lanczos",
+      "width": 224,
+      "height": 224,
+      "crop": "center"
+    },
+    "_meta": { "title": "style → 224x224 (ViT-H CLIP 표준)" }
+  },
+
+  "18": {
+    "class_type": "ApplyFluxIPAdapter",
+    "inputs": {
+      "model": ["30", 0],
+      "ip_adapter_flux": ["17", 0],
+      "image": ["15", 0],
+      "ip_scale": 0.55
+    },
+    "_meta": { "title": "Apply IPAdapter · style 이미지 → cross-attention" }
+  },
+
+  "20": {
+    "class_type": "VAEEncode",
+    "inputs": { "pixels": ["13", 0], "vae": ["10", 0] },
+    "_meta": { "title": "content → latent (img2img init)" }
+  },
+
+  "21": {
+    "class_type": "FluxGuidance",
+    "inputs": { "conditioning": ["6", 0], "guidance": 3.5 },
+    "_meta": { "title": "FluxGuidance" }
+  },
+
+  "23": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["18", 0],
+      "positive": ["21", 0],
+      "negative": ["7", 0],
+      "latent_image": ["20", 0],
+      "seed": 20260720,
+      "steps": 25,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.45
+    },
+    "_meta": { "title": "KSampler · denoise 0.45 · content 최대 유지 · 화풍만 살짝" }
+  },
+
+  "24": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["23", 0], "vae": ["10", 0] },
+    "_meta": { "title": "VAE Decode" }
+  },
+  "25": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["24", 0], "filename_prefix": "flux_ipadapter_wc" },
+    "_meta": { "title": "결과 저장" }
+  }
+}

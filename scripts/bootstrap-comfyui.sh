@@ -64,6 +64,28 @@ if [ -d "$VOLUME_PATH/custom_nodes/Comfy-Pilot" ]; then
         echo "  ⚠️ Comfy-Pilot 설치 실패"
 fi
 
+# x-flux-comfyui · DSBnew/SingleStreamBlock forward 가 attn_mask 를 안 받아서
+# 최신 ComfyUI 의 diffusion_model 호출과 호환 안 됨 · **kwargs 삽입해서 무시하게
+XLABS_LAYERS="$VOLUME_PATH/custom_nodes/x-flux-comfyui/xflux/src/flux/modules/layers.py"
+if [ -f "$XLABS_LAYERS" ]; then
+    python3 - <<PYEOF
+p = "$XLABS_LAYERS"
+s = open(p).read()
+s2 = s.replace(
+    'def forward(self, img: Tensor, txt: Tensor, vec: Tensor, pe: Tensor) -> tuple[Tensor, Tensor]:',
+    'def forward(self, img: Tensor, txt: Tensor, vec: Tensor, pe: Tensor, **kwargs) -> tuple[Tensor, Tensor]:'
+).replace(
+    'def forward(self, x: Tensor, vec: Tensor, pe: Tensor) -> Tensor:',
+    'def forward(self, x: Tensor, vec: Tensor, pe: Tensor, **kwargs) -> Tensor:'
+)
+if s2 != s:
+    open(p, 'w').write(s2)
+    print("  ✅ x-flux-comfyui attn_mask compat 패치 적용")
+else:
+    print("  ✅ x-flux-comfyui 이미 패치됨 (또는 upstream 수정)")
+PYEOF
+fi
+
 # CLIPSeg __init__.py 생성 · 노드 로드용
 printf '%s\n' \
     'import sys, os' \
