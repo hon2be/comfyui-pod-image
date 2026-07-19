@@ -57,7 +57,7 @@ RUN pip install --no-cache-dir \
         "huggingface_hub[hf_transfer]" \
         sqlalchemy alembic aiohttp av pyyaml \
         spandrel kornia soundfile blake3 \
-        comfy-aimdo
+        comfy-aimdo comfy-kitchen
 
 # torch 강제 재설치 · CUDA 버전 확보 (다른 pip 이 CPU 버전으로 덮어쓰는 것 방지)
 # base image (runpod/pytorch:2.4.0-cuda12.4.1) 가 지정한 torch 를 유지하려면 이 단계 필수.
