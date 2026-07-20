@@ -235,6 +235,24 @@ download_wan22() {
 }
 ```
 
+**LTX-Video 립싱크·토킹헤드 (4b)**:
+```bash
+download_ltx() {
+  # LTX-Video 0.9.7 13B distilled fp8 · A40/4090에서 img2vid+talking 5초 안정
+  # 파일명은 huggingface.co/Lightricks/LTX-Video/tree/main 기준 (2026-07 확인)
+  dl "$HF/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-distilled-fp8.safetensors" \
+     "$M/checkpoints/ltxv-13b-0.9.7-distilled-fp8.safetensors" 15000 &
+  dl "$HF/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-distilled-lora128.safetensors" \
+     "$M/loras/ltxv-13b-0.9.7-distilled-lora128.safetensors" 1200 &
+  # T5-XXL text encoder · FLUX와 공유 · 이미 있으면 dl()이 스킵
+  dl "$HF/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors" \
+     "$M/text_encoders/t5xxl_fp8_e4m3fn.safetensors" 4500 &
+  dl "$HF/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors" \
+     "$M/text_encoders/clip_l.safetensors" 200 &
+  wait
+}
+```
+
 **캐릭터 / 일러스트 (5, 6, 7)**:
 ```bash
 download_character() {
@@ -602,6 +620,9 @@ git add . && git commit -m "add workflow: NEW" && git push
 
 ### Q. "비디오 만들고 싶어"
 → 워크플로우 4 선택 + `download_wan22` 실행
+
+### Q. "립싱크·토킹헤드(말하는 영상) 만들고 싶어"
+→ `download_ltx` 실행 · LTX-Video 0.9.7 13B distilled fp8 + T5 encoder
 
 ### Q. "지금 모델 뭐 있어?"
 → `ls /workspace/comfyui/models/*/`
