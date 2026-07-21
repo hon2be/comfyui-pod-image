@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "workflow_id": "flux-kontext-outfit-swap",
+    "purpose": "FLUX.1 Kontext dev · 인물 사진 + 옷 참조 사진 → 인물은 유지하고 옷만 참조 옷으로 교체 · dual-image reference",
+    "notes": "hero_front.png (인물) + outfit_ref1.png (옷) 두 참조를 ReferenceLatent 로 순차 주입. 프롬프트에 '첫 참조 = 인물 유지, 두번째 참조 = 옷 이식' 명시. 텍스트 프롬프트로 옷 스타일 (색상·재질·핏) 재강조하면 정확도 상승. 아니메 hero 로 시작하면 아니메 스타일 유지하며 옷 교체됨.",
+    "tunable_nodes": {
+      "person_image": "13",
+      "outfit_image": "14",
+      "positive_prompt": "6",
+      "negative_prompt": "7",
+      "seed": "23",
+      "steps": "23",
+      "guidance": "21"
+    }
+  },
+  "6":  { "class_type": "CLIPTextEncode", "inputs": { "clip": ["11", 0], "text":
+      "Keep the exact same person from the first reference image: same face, same hair, same body proportions, same expression. Change her outfit to the exact clothing shown in the second reference image. Match the color, fabric texture, and silhouette of the second reference outfit precisely. Full body front standing portrait, arms relaxed at sides, seamless light gray studio background, soft even studio lighting, photorealistic photograph, 85mm lens, sharp focus." } },
+  "7":  { "class_type": "CLIPTextEncode", "inputs": { "clip": ["11", 0], "text":
+      "logo, watermark, text, extra person, two people, hand near face, altered face, deformed" } },
+  "10": { "class_type": "VAELoader", "inputs": { "vae_name": "ae.safetensors" } },
+  "11": { "class_type": "DualCLIPLoader", "inputs": { "clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux" } },
+  "12": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors", "weight_dtype": "default" } },
+
+  "13": { "class_type": "LoadImage", "inputs": { "image": "hero_front.png" } },
+  "14": { "class_type": "LoadImage", "inputs": { "image": "outfit_ref1.png" } },
+
+  "15": { "class_type": "FluxKontextImageScale", "inputs": { "image": ["13", 0] } },
+  "16": { "class_type": "FluxKontextImageScale", "inputs": { "image": ["14", 0] } },
+  "17": { "class_type": "VAEEncode", "inputs": { "pixels": ["15", 0], "vae": ["10", 0] } },
+  "18": { "class_type": "VAEEncode", "inputs": { "pixels": ["16", 0], "vae": ["10", 0] } },
+
+  "19": { "class_type": "ReferenceLatent", "inputs": { "conditioning": ["6", 0], "latent": ["17", 0] } },
+  "20": { "class_type": "ReferenceLatent", "inputs": { "conditioning": ["19", 0], "latent": ["18", 0] } },
+
+  "21": { "class_type": "FluxGuidance", "inputs": { "conditioning": ["20", 0], "guidance": 2.5 } },
+  "23": { "class_type": "KSampler", "inputs": {
+      "model": ["12", 0], "positive": ["21", 0], "negative": ["7", 0],
+      "latent_image": ["17", 0], "seed": 42, "steps": 24, "cfg": 1.0,
+      "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0 } },
+  "8":  { "class_type": "VAEDecode", "inputs": { "samples": ["23", 0], "vae": ["10", 0] } },
+  "9":  { "class_type": "SaveImage", "inputs": { "images": ["8", 0], "filename_prefix": "hero_outfit" } }
+}

@@ -144,6 +144,11 @@ curl -sf http://127.0.0.1:${COMFYUI_PORT}/system_stats >/dev/null && echo OK || 
 🎨 스타일 전이 (XLabs FLUX IPAdapter v2 · 세밀 dual-image)
   23) flux_ipadapter_style.json    — Cross-attention 각 층에 style 벡터 주입 · Redux 대비 미묘한 텍스처·붓 터치까지 이전 · 같은 계열 화풍 (지브리↔지브리) 에서도 세부 이전 잘 됨
 
+🎥 가상인간 파이프라인 (2026-07-22 확정 · API JSON 워크플로우)
+  24) wan22_person_turnaround_api.json     — WAN 2.2 Fun Camera Static + 인물 자체 회전 프롬프트 · 정면 사진 1장 → 360° 5초 turnaround mp4 · ModelSamplingSD3 shift=8 · KSamplerAdvanced 2단계 20-step CFG 3.5 · 480x832 · 8분/렌더 (RTX 4090)
+  25) flux_kontext_anime_style_api.json    — Flux Kontext 단일 참조 · 실사 → 지브리/신카이 아니메 화풍 변환 · 프롬프트만으로 스타일 이식 · 80초/렌더
+  26) flux_kontext_outfit_swap_api.json    — Flux Kontext dual-reference · 인물(참조1) + 옷(참조2) 두 ReferenceLatent 순차 주입 · 인물 identity 유지하며 옷만 교체 · 80초/렌더
+
 🛠 기타
   12) seethrough.json
   13) set layer.json

@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "workflow_id": "flux-kontext-anime-style",
+    "purpose": "FLUX.1 Kontext dev · 실사 인물 사진을 지브리/신카이 아니메 화풍으로 변환 · 단일 참조 (편집 프롬프트만)",
+    "notes": "hero_front.png 등 실사 정면 이미지 → 아니메 hero. WAN 2.2 turnaround 실행 전 스타일 변환 단계에 사용. 프롬프트 조정으로 픽사/디즈니/한국 웹툰 등 다른 스타일도 가능.",
+    "tunable_nodes": {
+      "content_image": "13",
+      "positive_prompt": "6",
+      "seed": "23",
+      "steps": "23",
+      "guidance": "21"
+    }
+  },
+  "6":  { "class_type": "CLIPTextEncode", "inputs": { "clip": ["11", 0], "text":
+      "Transform the reference photograph into a Studio Ghibli / Makoto Shinkai anime style illustration. Convert the person into a hand-drawn anime character with cel-shaded style, clean line art, soft anime-style lighting, painterly anime background, large expressive anime eyes, vibrant but soft anime color palette. Keep the same composition (waist-up front view), same outfit structure (white t-shirt, blue jeans), same pose, same hair (long high ponytail with heavy front bangs), same warm smile expression, same seamless gray studio background as anime studio setting. Full body, cel-shaded anime style, high quality anime illustration, 2D animation frame" } },
+  "7":  { "class_type": "CLIPTextEncode", "inputs": { "clip": ["11", 0], "text": "" } },
+  "10": { "class_type": "VAELoader", "inputs": { "vae_name": "ae.safetensors" } },
+  "11": { "class_type": "DualCLIPLoader", "inputs": { "clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux" } },
+  "12": { "class_type": "UNETLoader", "inputs": { "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors", "weight_dtype": "default" } },
+  "13": { "class_type": "LoadImage", "inputs": { "image": "hero_front.png" } },
+  "15": { "class_type": "FluxKontextImageScale", "inputs": { "image": ["13", 0] } },
+  "17": { "class_type": "VAEEncode", "inputs": { "pixels": ["15", 0], "vae": ["10", 0] } },
+  "19": { "class_type": "ReferenceLatent", "inputs": { "conditioning": ["6", 0], "latent": ["17", 0] } },
+  "21": { "class_type": "FluxGuidance", "inputs": { "conditioning": ["19", 0], "guidance": 2.5 } },
+  "23": { "class_type": "KSampler", "inputs": {
+      "model": ["12", 0], "positive": ["21", 0], "negative": ["7", 0],
+      "latent_image": ["17", 0], "seed": 42, "steps": 24, "cfg": 1.0,
+      "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0 } },
+  "8":  { "class_type": "VAEDecode", "inputs": { "samples": ["23", 0], "vae": ["10", 0] } },
+  "9":  { "class_type": "SaveImage", "inputs": { "images": ["8", 0], "filename_prefix": "hero_anime" } }
+}
