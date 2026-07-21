@@ -29,6 +29,26 @@ DNS_EOF
 chattr +i /etc/resolv.conf 2>/dev/null || true
 
 # ─────────────────────────────────────
+# 1.5. SSH 서버 · PUBLIC_KEY env 로 인증 · 22 포트 노출된 파드에서만 접속 가능
+# ─────────────────────────────────────
+if [ -n "$PUBLIC_KEY" ]; then
+    echo "🔑 SSH 셋업 (PUBLIC_KEY 감지)"
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+    echo "$PUBLIC_KEY" > /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+    # sshd host keys · 없으면 생성
+    ssh-keygen -A 2>/dev/null || true
+    # PasswordAuthentication 끄고 · root 로그인 허용
+    sed -ri 's/^#?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+    sed -ri 's/^#?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+    /usr/sbin/sshd -D -p 22 &
+    echo "  ✅ sshd 시작 (port 22 · key auth)"
+else
+    echo "🔑 PUBLIC_KEY 없음 · sshd 건너뜀"
+fi
+
+# ─────────────────────────────────────
 # 2. 볼륨 폴더 확보
 # ─────────────────────────────────────
 mkdir -p $VOLUME_PATH/{models/{checkpoints,loras,vae,text_encoders,diffusion_models,controlnet,ipadapter,clip_vision,ultralytics/bbox,insightface,depthanything},custom_nodes,input,output,user/default/workflows}
@@ -51,6 +71,17 @@ else
         rm -rf "$COMFY_PATH.old" && mv "$COMFY_PATH" "$COMFY_PATH.old" 2>/dev/null || true
         /usr/local/bin/bootstrap-comfyui.sh
     fi
+fi
+
+# ─────────────────────────────────────
+# 3.5. WAN2.2 · AUTO_DOWNLOAD_WAN22=true 이면 볼륨에 없을 때만 다운로드
+# ─────────────────────────────────────
+WAN_HIGH="$VOLUME_PATH/models/diffusion_models/wan2.2_fun_camera_high_noise_14B_fp8_scaled.safetensors"
+if [ "${AUTO_DOWNLOAD_WAN22:-false}" = "true" ] && [ ! -f "$WAN_HIGH" ]; then
+    echo "🎬 WAN2.2 볼륨에 없음 · 자동 다운로드 시작 (~35GB · 5-10분)"
+    /usr/local/bin/download-wan22.sh || echo "⚠️ WAN2.2 다운로드 실패 · 이후 수동 재시도 가능"
+elif [ -f "$WAN_HIGH" ]; then
+    echo "🎬 WAN2.2 이미 볼륨에 있음 · 스킵"
 fi
 
 # ─────────────────────────────────────

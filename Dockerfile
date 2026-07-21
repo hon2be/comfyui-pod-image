@@ -33,7 +33,9 @@ ENV AUTO_DOWNLOAD_MODELS=true
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl wget git tmux htop nano vim ca-certificates jq \
         ffmpeg libgl1 libglib2.0-0 build-essential \
-        gettext-base \
+        gettext-base openssh-server \
+    && mkdir -p /var/run/sshd /root/.ssh \
+    && chmod 700 /root/.ssh \
     && rm -rf /var/lib/apt/lists/*
 
 # ─────────────────────────────────────
@@ -84,7 +86,8 @@ COPY configs/workflows /opt/workflows-template
 COPY configs/claude /opt/claude-template
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/bootstrap-comfyui.sh /usr/local/bin/bootstrap-comfyui.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/bootstrap-comfyui.sh
+COPY scripts/download-wan22.sh /usr/local/bin/download-wan22.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/bootstrap-comfyui.sh /usr/local/bin/download-wan22.sh
 
 WORKDIR /workspace
 EXPOSE 3000 8188 8888 22
